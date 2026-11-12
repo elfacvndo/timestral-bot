@@ -8,5 +8,15 @@
   "entrata": 355.596,
   "stop": 354.40992857142857,
   "obiettivo": 357.1774285714286
+ },
+ "SOL/USD": {
+  "apertura": "2026-11-12 19:00",
+  "strategia": "caso",
+  "segnali": "caso",
+  "punteggio": 0.2951334529496341,
+  "investito": 11.765282864663998,
+  "entrata": 81.564,
+  "stop": 80.83000178571429,
+  "obiettivo": 82.54266428571428
  }
 }
