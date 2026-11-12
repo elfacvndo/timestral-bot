@@ -57,16 +57,18 @@ STOCK = os.environ.get("MERCATO", "ETH") == "SPY"
 H, CTX = 15, 1024
 if STOCK:
     SYMBOL, POSITION, TAG, NAME = "SPY", "/v2/positions/SPY", "spy", "_spy"
-    BARS, FEED, TIF = "https://data.alpaca.markets/v2/stocks/bars", {"feed": "iex"}, "day"
+    TIF = "day"
     THETA = 0.6    # misurata sul training dell'esperimento: perde un po' (costi), circa 1 operazione al giorno
     COST, FEE = 0.00005, 0.0
 else:
     SYMBOL, POSITION, TAG, NAME = "ETH/USD", "/v2/positions/ETHUSD", "ts", ""
-    BARS, FEED, TIF = "https://data.alpaca.markets/v1beta3/crypto/us/bars", {}, "gtc"
+    TIF = "gtc"
     THETA = 0.5    # soglia 50%: scelta per vederlo operare, NON misurata (all'80% non entra mai)
     COST = 0.0055  # andata e ritorno, in frazione del prezzo
     FEE = 0.0025   # commissione Alpaca su ogni ordine a mercato
 NY = "America/New_York"
+CRYPTO_BARS = "https://data.alpaca.markets/v1beta3/crypto/us/bars"
+STOCK_BARS = "https://data.alpaca.markets/v2/stocks/bars"
 SHARE, RISK, MAX_DAILY_LOSS = 0.10, 0.01, 0.05
 LEVELS = np.array([0.01, *np.round(np.arange(0.05, 0.951, 0.05), 2), 0.99])
 Q10, Q50, Q75, Q90 = 2, 10, 15, 18
@@ -151,19 +153,20 @@ def borsa(idx, cal):
     return ok
 
 
-def minutes(now, n):
+def minutes(now, n, symbol=SYMBOL, stock=STOCK):
     """Le ultime n candele da 1 minuto CHIUSE prima di `now` (il minuto in corso si scarta). I minuti senza scambi
     non hanno candela: si riempiono col prezzo di prima. Su SPY contano solo i minuti a Borsa aperta, come
     nell'esperimento (1024 minuti sono ~2 giorni e mezzo di Borsa). Se i dati sono vecchi, meglio non decidere."""
+    bars, feed = (STOCK_BARS, {"feed": "iex"}) if stock else (CRYPTO_BARS, {})
     end = now.floor("min")
-    start = end - (timedelta(days=7) if STOCK else timedelta(minutes=n + 30))
+    start = end - (timedelta(days=7) if stock else timedelta(minutes=n + 30))
     rows, token = [], None
     while True:
-        p = {"symbols": SYMBOL, "timeframe": "1Min", "start": f"{start:%Y-%m-%dT%H:%M:%SZ}", "limit": 10000, **FEED}
+        p = {"symbols": symbol, "timeframe": "1Min", "start": f"{start:%Y-%m-%dT%H:%M:%SZ}", "limit": 10000, **feed}
         if token:
             p["page_token"] = token
-        page = get_json(urllib.request.Request(f"{BARS}?{urllib.parse.urlencode(p)}", headers=keys()))
-        rows += page["bars"].get(SYMBOL, [])
+        page = get_json(urllib.request.Request(f"{bars}?{urllib.parse.urlencode(p)}", headers=keys()))
+        rows += page["bars"].get(symbol, [])
         token = page.get("next_page_token")
         if not token:
             break
@@ -173,7 +176,7 @@ def minutes(now, n):
     if df.empty or df.index[-1] < end - timedelta(minutes=10):
         raise RuntimeError(f"dati vecchi: ultima candela {df.index[-1] if len(df) else 'nessuna'}")
     full = pd.date_range(start, end - timedelta(minutes=1), freq="min", tz="UTC")
-    if STOCK:
+    if stock:
         full = full[borsa(full, api("GET", f"/v2/calendar?start={start:%Y-%m-%d}&end={end:%Y-%m-%d}"))]
     full = full[-n:]
     c = df.c.reindex(full).ffill()
