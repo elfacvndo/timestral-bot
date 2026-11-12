@@ -1,14 +1,4 @@
 {
- "GLD": {
-  "apertura": "2026-11-12 20:00",
-  "strategia": "caso",
-  "segnali": "slancio caso",
-  "punteggio": 0.2578744025481646,
-  "investito": 1.9899997042080002,
-  "entrata": 355.728,
-  "stop": 354.86657142857143,
-  "obiettivo": 356.8765714285714
- },
  "SOL/USD": {
   "apertura": "2026-11-12 20:30",
   "strategia": "caso",
