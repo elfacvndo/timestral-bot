@@ -223,6 +223,9 @@ def enter(sym, now, equity, cash, op, rows, rng, model):
     if not arm:
         return
     amount = min(SIZE * equity, cash * 0.9)
+    if amount < 1.5:  # Alpaca non accetta ordini sotto ~1 $
+        print(f"{sym}: importo troppo piccolo ({amount:.2f} $), salto", flush=True)
+        return
     o = order(sym, "buy", f"es-{sym.replace('/', '')}-in-{arm}-{now:%Y%m%d%H%M}", notional=f"{amount:.2f}")
     if o["status"] != "filled":
         print(f"{sym}: acquisto non eseguito ({o['status']})", flush=True)

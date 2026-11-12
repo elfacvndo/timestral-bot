@@ -141,7 +141,7 @@ def market(side, cid, qty=None, notional=None):
 
 def held():
     p = api("GET", POSITION, missing_ok=True)
-    return float(p["qty"]) if p and float(p["market_value"]) > 10 else 0.0
+    return float(p["qty"]) if p and float(p["market_value"]) > 1 else 0.0
 
 
 def borsa(idx, cal):
@@ -251,6 +251,9 @@ def trade(now, P, prob, s, tps, equity, cash):
     """Un'operazione intera: compra, segue stop e obiettivi minuto per minuto, chiude entro 15 minuti."""
     budget = equity * SHARE
     amount = min(budget, RISK * budget * P / s, cash * 0.98)
+    if amount < 5:  # Alpaca vuole almeno ~1 $ a ordine e l'uscita è in tre pezzi
+        print(f"importo troppo piccolo ({amount:.2f} $), salto", flush=True)
+        return 0.0
     tag = f"{now:%Y%m%d%H%M}"
     o = market("buy", f"{TAG}-buy-{tag}", notional=f"{amount:.2f}")
     if o["status"] != "filled":
