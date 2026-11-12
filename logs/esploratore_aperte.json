@@ -1,1 +1,12 @@
-{}
+{
+ "SOL/USD": {
+  "apertura": "2026-11-12 23:15",
+  "strategia": "caso",
+  "segnali": "slancio caso",
+  "punteggio": 0.3555287303224839,
+  "investito": 11.7670407338685,
+  "entrata": 81.6411,
+  "stop": 81.24725892857143,
+  "obiettivo": 82.16622142857142
+ }
+}
