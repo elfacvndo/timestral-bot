@@ -67,6 +67,7 @@ else:
     COST = 0.0055  # andata e ritorno, in frazione del prezzo
     FEE = 0.0025   # commissione Alpaca su ogni ordine a mercato
 NY = "America/New_York"
+CRYPTO_MIN = 12  # minimo per ordine crypto su Alpaca: 10 $ ("minimal amount of order 10"), più margine
 CRYPTO_BARS = "https://data.alpaca.markets/v1beta3/crypto/us/bars"
 STOCK_BARS = "https://data.alpaca.markets/v2/stocks/bars"
 SHARE, RISK, MAX_DAILY_LOSS = 0.10, 0.01, 0.05
@@ -251,7 +252,9 @@ def trade(now, P, prob, s, tps, equity, cash):
     """Un'operazione intera: compra, segue stop e obiettivi minuto per minuto, chiude entro 15 minuti."""
     budget = equity * SHARE
     amount = min(budget, RISK * budget * P / s, cash * 0.98)
-    if amount < 5:  # Alpaca vuole almeno ~1 $ a ordine e l'uscita è in tre pezzi
+    if not STOCK:  # Alpaca rifiuta ordini crypto sotto 10 $: si compra almeno 12 $ e si esce in un pezzo solo
+        amount = max(amount, CRYPTO_MIN) if cash * 0.98 >= CRYPTO_MIN else 0
+    if amount < 5:  # azioni: Alpaca vuole almeno ~1 $ a ordine e l'uscita è in tre pezzi
         print(f"importo troppo piccolo ({amount:.2f} $), salto", flush=True)
         return 0.0
     tag = f"{now:%Y%m%d%H%M}"
@@ -275,6 +278,8 @@ def trade(now, P, prob, s, tps, equity, cash):
             if minute == H and plan["k"] < 3:   # 15 minuti passati: si chiude il resto
                 n, why, plan["k"] = n + 3 - plan["k"], why or "tempo", 3
         if n:
+            if not STOCK:  # crypto: un pezzo solo (pezzi sotto 10 $ rifiutati), al primo obiettivo o allo stop si esce
+                plan["k"] = 3
             last = plan["k"] == 3 or STOP
             q = f"{held():.9f}" if last else f"{min(n * piece, qty):.9f}"
             x = market("sell", f"{TAG}-sell-{tag}-{minute}", qty=q)

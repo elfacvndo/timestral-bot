@@ -38,7 +38,7 @@ chiusura della Borsa.
 
 Mercati: solo simboli che gli altri bot non toccano (Alpaca tiene una sola posizione per simbolo e il conto è lo stesso):
 QQQ (Nasdaq) e GLD (oro) a Borsa USA aperta, niente commissioni; SOL/USD (crypto) 24 ore su 24, 0,25% a ordine.
-Ogni operazione investe il 2% del conto; al massimo tre insieme (6%). Kill switch: se nel giorno (UTC) l'esploratore
+Ogni operazione investe il 2% del conto (su SOL almeno 12 $: Alpaca non accetta ordini crypto sotto 10 $); al massimo tre insieme (6%). Kill switch: se nel giorno (UTC) l'esploratore
 ha perso più dell'1% del conto, niente operazioni nuove fino al giorno dopo. Solo acquisti.
 Il punteggio è "netto": risultato dai prezzi eseguiti meno i costi stimati (0,6% andata e ritorno su SOL, 0,01% sulle
 azioni), così impara anche quanto costa entrare, comunque il paper registri le commissioni.
@@ -68,6 +68,8 @@ MARKETS = {  # simbolo: (azione?, costi stimati andata e ritorno in %, oscillazi
 }
 ARMS = ["tendenza", "rimbalzo", "rottura", "slancio", "timestral", "caso"]
 SIZE, MAX_DAILY_LOSS = 0.02, 0.01
+CRYPTO_MIN = 12   # Alpaca rifiuta ordini crypto sotto 10 $ ("minimal amount of order 10"): 12 lascia margine all'uscita
+CONTO_DAL = "2026-11-12 14:50"  # conto Paper da 100 $: le operazioni di prima (conto da 100.000 $) non contano nel kill switch
 HOLD = 60          # minuti massimi di un'operazione (= 4 candele da 15)
 N0 = 2             # quanto pesa il "non so niente" iniziale, in operazioni finte a risultato zero
 MINUTES = int(os.environ.get("MINUTI", 330))
@@ -222,9 +224,9 @@ def enter(sym, now, equity, cash, op, rows, rng, model):
     print(f"{now:%H:%M} {sym} {P:.2f} segnali {','.join(cand)} → {arm or 'fuori'} ({score:+.3f})", flush=True)
     if not arm:
         return
-    amount = min(SIZE * equity, cash * 0.9)
-    if amount < 1.5:  # Alpaca non accetta ordini sotto ~1 $
-        print(f"{sym}: importo troppo piccolo ({amount:.2f} $), salto", flush=True)
+    amount = SIZE * equity if stock else max(SIZE * equity, CRYPTO_MIN)
+    if amount > cash * 0.9 or amount < 1.5:  # azioni: Alpaca non accetta ordini sotto ~1 $
+        print(f"{sym}: importo fuori misura ({amount:.2f} $, contanti {cash:.2f} $), salto", flush=True)
         return
     o = order(sym, "buy", f"es-{sym.replace('/', '')}-in-{arm}-{now:%Y%m%d%H%M}", notional=f"{amount:.2f}")
     if o["status"] != "filled":
@@ -280,7 +282,7 @@ def main():
             acct = bot.api("GET", "/v2/account")
             equity, cash = float(acct["equity"]), float(acct["non_marginable_buying_power"])
             rows = history()
-            lost = sum(float(r["netto_usd"]) for r in rows if r["chiusura"].startswith(f"{now:%Y-%m-%d}"))
+            lost = sum(float(r["netto_usd"]) for r in rows if r["chiusura"].startswith(f"{now:%Y-%m-%d}") and r["apertura"] >= CONTO_DAL)
             if lost < -MAX_DAILY_LOSS * equity and stopped_day != f"{now:%Y-%m-%d}":
                 stopped_day = f"{now:%Y-%m-%d}"
                 notify(f"kill switch: oggi {lost:.2f} $. Niente operazioni nuove fino a domani (UTC).")
