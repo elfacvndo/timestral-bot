@@ -1,6 +1,7 @@
 # Bot Timestral sempre acceso: un giro dura ~5 ore e mezza (GitHub ferma un lavoro dopo 6), poi si rilancia da solo.
+# Due lavori insieme, uno per mercato: ETH (24 ore su 24) e SPY (aspetta la Borsa USA aperta, 15:30-22:00 italiane).
 # Il cron ogni ora è la riserva se il rilancio si perde. Mai due giri insieme (concurrency).
-# Spegnere: GitHub → Actions → "Bot Timestral" → "..." → Disable workflow. Il bot vende gli ETH che ha prima di uscire.
+# Spegnere: GitHub → Actions → "Bot Timestral" → "..." → Disable workflow. Il bot vende quello che ha prima di uscire.
 name: Bot Timestral
 on:
   workflow_dispatch:
@@ -10,9 +11,13 @@ concurrency: timestral
 permissions:
   contents: write   # salva il registro delle operazioni nel repository
   actions: write    # si rilancia da solo
-  issues: write     # avvisi (kill switch, ETH rimasti da un giro interrotto)
+  issues: write     # avvisi (kill switch, posizioni rimaste da un giro interrotto)
 jobs:
   bot:
+    strategy:
+      fail-fast: false   # se un mercato si rompe, l'altro continua
+      matrix:
+        mercato: [ETH, SPY]
     runs-on: ubuntu-latest
     timeout-minutes: 355
     steps:
@@ -28,14 +33,16 @@ jobs:
           APCA_API_SECRET_KEY: ${{ secrets.APCA_API_SECRET_KEY }}
           GH_TOKEN: ${{ github.token }}
           PYTHONUNBUFFERED: "1"
+          MERCATO: ${{ matrix.mercato }}
       - name: Salva il registro
         if: always()
         run: |
           git add logs 2>/dev/null || exit 0
           git diff --cached --quiet && exit 0
-          git commit -q -m "registro $(date -u '+%Y-%m-%d %H:%M') UTC" && git pull -q --rebase && git push -q
+          git commit -q -m "registro ${{ matrix.mercato }} $(date -u '+%Y-%m-%d %H:%M') UTC"
+          for i in 1 2 3; do git pull -q --rebase && git push -q && exit 0; sleep 10; done; exit 1  # l'altro mercato può spingere insieme
       - name: Rilancia
-        if: success()
+        if: success() && matrix.mercato == 'ETH'   # uno solo rilancia; il giro nuovo parte quando sono finiti tutti e due
         run: gh workflow run bot.yml --ref main
         env:
           GH_TOKEN: ${{ github.token }}

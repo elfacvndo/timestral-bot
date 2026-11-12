@@ -13,7 +13,8 @@
 # url = "https://download.pytorch.org/whl/cpu"
 # explicit = true
 # ///
-"""Bot Timestral: microoperazioni su ETH/USD, conto demo Alpaca (Paper). Gira nel cloud (GitHub Actions).
+"""Bot Timestral: microoperazioni su ETH/USD o su SPY (MERCATO=SPY), conto demo Alpaca (Paper). Gira nel cloud
+(GitHub Actions), un lavoro per mercato.
 
 Ogni minuto, sulla candela da 1 minuto appena chiusa, Timestral-5M (Mistral) guarda gli ultimi 1024 minuti di prezzo e
 dice dove potrebbe essere ETH fra 15 minuti, come una fascia di 21 livelli. Regole fisse (le stesse dell'esperimento
@@ -27,9 +28,13 @@ Solo acquisti: Alpaca non permette di vendere allo scoperto le crypto. Costi: 0,
 più 0,05% di slittamento, cioè 0,55% andata e ritorno.
 Lo stesso conto del bot orario (che opera su BTC): questo usa solo ETH e al massimo il 10% del conto, rischia l'1% di
 quella quota a stop pieno, e si ferma fino al giorno dopo se nel giorno ha perso il 5% della quota.
+SPY (azioni USA, MERCATO=SPY): stesse regole, altri 10% del conto, solo a Borsa aperta (15:30-22:00 italiane), entra
+dalle 9:35 di New York fino a 30 minuti prima della chiusura. Costi quasi zero (niente commissioni, spread di 1 centesimo:
+0,005% andata e ritorno), soglia 60% (con costi zero al 50% entrerebbe di continuo); dati del feed IEX, il gratuito.
 
     uv run bot.py --prova     # prove delle regole, niente rete
     uv run bot.py             # il bot (servono le chiavi APCA_API_KEY_ID / APCA_API_SECRET_KEY)
+    MERCATO=SPY uv run bot.py # lo stesso su SPY
 """
 import csv
 import json
@@ -47,18 +52,27 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-SYMBOL, POSITION = "ETH/USD", "/v2/positions/ETHUSD"
 BASE = "https://paper-api.alpaca.markets"  # PAPER: solo soldi finti. Non cambiare.
-BARS = "https://data.alpaca.markets/v1beta3/crypto/us/bars"
-H, THETA, CTX = 15, 0.5, 1024   # soglia 50%: scelta per vederlo operare, NON misurata (all'80% non entra mai)
-COST = 0.0055                 # andata e ritorno, in frazione del prezzo
-FEE = 0.0025                  # commissione Alpaca su ogni ordine a mercato
+STOCK = os.environ.get("MERCATO", "ETH") == "SPY"
+H, CTX = 15, 1024
+if STOCK:
+    SYMBOL, POSITION, TAG, NAME = "SPY", "/v2/positions/SPY", "spy", "_spy"
+    BARS, FEED, TIF = "https://data.alpaca.markets/v2/stocks/bars", {"feed": "iex"}, "day"
+    THETA = 0.6    # misurata sul training dell'esperimento: perde un po' (costi), circa 1 operazione al giorno
+    COST, FEE = 0.00005, 0.0
+else:
+    SYMBOL, POSITION, TAG, NAME = "ETH/USD", "/v2/positions/ETHUSD", "ts", ""
+    BARS, FEED, TIF = "https://data.alpaca.markets/v1beta3/crypto/us/bars", {}, "gtc"
+    THETA = 0.5    # soglia 50%: scelta per vederlo operare, NON misurata (all'80% non entra mai)
+    COST = 0.0055  # andata e ritorno, in frazione del prezzo
+    FEE = 0.0025   # commissione Alpaca su ogni ordine a mercato
+NY = "America/New_York"
 SHARE, RISK, MAX_DAILY_LOSS = 0.10, 0.01, 0.05
 LEVELS = np.array([0.01, *np.round(np.arange(0.05, 0.951, 0.05), 2), 0.99])
 Q10, Q50, Q75, Q90 = 2, 10, 15, 18
 MINUTES = int(os.environ.get("MINUTI", 330))  # quanto dura un giro: GitHub ferma un lavoro dopo 6 ore
 LOGS = Path(__file__).parent / "logs"
-OPS, DAY = LOGS / "operazioni.csv", LOGS / "giorno.json"
+OPS, DAY = LOGS / f"operazioni{NAME}.csv", LOGS / f"giorno{NAME}.json"
 FIELDS = ["apertura", "chiusura", "probabilita", "investito", "entrata", "stop", "tp1", "tp2", "tp3", "uscite",
           "risultato_usd", "risultato_pct", "motivo"]
 STOP = []
@@ -118,7 +132,7 @@ def execute(order):
 
 
 def market(side, cid, qty=None, notional=None):
-    o = {"symbol": SYMBOL, "side": side, "type": "market", "time_in_force": "gtc", "client_order_id": cid}
+    o = {"symbol": SYMBOL, "side": side, "type": "market", "time_in_force": TIF, "client_order_id": cid}
     o.update({"qty": qty} if qty else {"notional": notional})
     return execute(o)
 
@@ -128,14 +142,24 @@ def held():
     return float(p["qty"]) if p and float(p["market_value"]) > 10 else 0.0
 
 
+def borsa(idx, cal):
+    """Quali minuti (UTC) cadono a Borsa aperta, secondo il calendario di Alpaca: festivi e mezze giornate compresi."""
+    ok = np.zeros(len(idx), bool)
+    for d in cal:
+        o, c = (pd.Timestamp(f"{d['date']} {d[k]}", tz=NY) for k in ("open", "close"))
+        ok |= (idx >= o) & (idx < c)
+    return ok
+
+
 def minutes(now, n):
     """Le ultime n candele da 1 minuto CHIUSE prima di `now` (il minuto in corso si scarta). I minuti senza scambi
-    non hanno candela: si riempiono col prezzo di prima. Se i dati sono vecchi, meglio non decidere."""
+    non hanno candela: si riempiono col prezzo di prima. Su SPY contano solo i minuti a Borsa aperta, come
+    nell'esperimento (1024 minuti sono ~2 giorni e mezzo di Borsa). Se i dati sono vecchi, meglio non decidere."""
     end = now.floor("min")
-    start = end - timedelta(minutes=n + 30)
+    start = end - (timedelta(days=7) if STOCK else timedelta(minutes=n + 30))
     rows, token = [], None
     while True:
-        p = {"symbols": SYMBOL, "timeframe": "1Min", "start": f"{start:%Y-%m-%dT%H:%M:%SZ}", "limit": 10000}
+        p = {"symbols": SYMBOL, "timeframe": "1Min", "start": f"{start:%Y-%m-%dT%H:%M:%SZ}", "limit": 10000, **FEED}
         if token:
             p["page_token"] = token
         page = get_json(urllib.request.Request(f"{BARS}?{urllib.parse.urlencode(p)}", headers=keys()))
@@ -148,7 +172,10 @@ def minutes(now, n):
     df = df[df.index < end]
     if df.empty or df.index[-1] < end - timedelta(minutes=10):
         raise RuntimeError(f"dati vecchi: ultima candela {df.index[-1] if len(df) else 'nessuna'}")
-    full = pd.date_range(end - timedelta(minutes=n), end - timedelta(minutes=1), freq="min", tz="UTC")
+    full = pd.date_range(start, end - timedelta(minutes=1), freq="min", tz="UTC")
+    if STOCK:
+        full = full[borsa(full, api("GET", f"/v2/calendar?start={start:%Y-%m-%d}&end={end:%Y-%m-%d}"))]
+    full = full[-n:]
     c = df.c.reindex(full).ffill()
     return c.dropna(), df[["h", "l"]].reindex(full)
 
@@ -194,7 +221,7 @@ def push(msg):
 def notify(msg):
     print(msg, flush=True)
     if os.environ.get("GITHUB_ACTIONS"):
-        subprocess.run(["gh", "issue", "create", "--title", f"Timestral: {msg}"[:250], "--body", msg,
+        subprocess.run(["gh", "issue", "create", "--title", f"Timestral {SYMBOL}: {msg}"[:250], "--body", msg,
                         "--assignee", os.environ["GITHUB_REPOSITORY_OWNER"]], capture_output=True)
 
 
@@ -222,7 +249,7 @@ def trade(now, P, prob, s, tps, equity, cash):
     budget = equity * SHARE
     amount = min(budget, RISK * budget * P / s, cash * 0.98)
     tag = f"{now:%Y%m%d%H%M}"
-    o = market("buy", f"ts-buy-{tag}", notional=f"{amount:.2f}")
+    o = market("buy", f"{TAG}-buy-{tag}", notional=f"{amount:.2f}")
     if o["status"] != "filled":
         print(f"acquisto non eseguito: {o['status']}", flush=True)
         return 0.0
@@ -244,7 +271,7 @@ def trade(now, P, prob, s, tps, equity, cash):
         if n:
             last = plan["k"] == 3 or STOP
             q = f"{held():.9f}" if last else f"{min(n * piece, qty):.9f}"
-            x = market("sell", f"ts-sell-{tag}-{minute}", qty=q)
+            x = market("sell", f"{TAG}-sell-{tag}-{minute}", qty=q)
             if x["status"] == "filled":
                 got += float(x["filled_qty"]) * float(x["filled_avg_price"]) * (1 - FEE)
                 exits.append(f"{why} {float(x['filled_avg_price']):.2f}")
@@ -268,11 +295,11 @@ def main():
     model = TimestralForecaster.from_pretrained("mistralai/Timestral-5M")
     # Riconciliazione: lo stato vero è quello del broker. ETH rimasti da un giro interrotto si vendono.
     for o in api("GET", "/v2/orders?status=open&limit=500"):
-        if o["symbol"].replace("/", "") == "ETHUSD":
+        if o["symbol"].replace("/", "") == SYMBOL.replace("/", ""):
             api("DELETE", f"/v2/orders/{o['id']}")
     if held():
-        x = market("sell", f"ts-start-{pd.Timestamp.now('UTC'):%Y%m%d%H%M}", qty=f"{held():.9f}")
-        notify(f"All'avvio c'erano ETH di un giro interrotto: venduti ({x['status']}).")
+        x = market("sell", f"{TAG}-start-{pd.Timestamp.now('UTC'):%Y%m%d%H%M}", qty=f"{held():.9f}")
+        notify(f"All'avvio c'erano {SYMBOL} di un giro interrotto: venduti ({x['status']}).")
     end = time.time() + MINUTES * 60
     print(f"Bot Timestral avviato su {BASE} — {SYMBOL}, {MINUTES} minuti.", flush=True)
     while not STOP and time.time() < end:
@@ -281,6 +308,11 @@ def main():
             break
         now = pd.Timestamp.now("UTC")
         try:
+            if STOCK:  # a Borsa chiusa si aspetta; si entra dalle 9:35 di New York a 30 minuti dalla chiusura
+                clock = api("GET", "/v2/clock")
+                if (not clock["is_open"] or now.tz_convert(NY).time() < pd.Timestamp("09:35").time()
+                        or pd.Timestamp(clock["next_close"]) - now < timedelta(minutes=30)):
+                    continue
             acct = api("GET", "/v2/account")
             equity, day = float(acct["equity"]), today(now)
             if day["fermo"]:
@@ -305,10 +337,10 @@ def main():
             push(f"operazione {now:%Y-%m-%d %H:%M} UTC: {pnl:+.2f} $")
         except Exception as e:  # rete, dati, broker: si salta il minuto e si riprova al prossimo
             print(f"ERRORE: {e}", flush=True)
-            if held() and not STOP:  # mai lasciare ETH senza stop: se un'operazione si è rotta a metà, si vende
-                market("sell", f"ts-err-{now:%Y%m%d%H%M}", qty=f"{held():.9f}")
+            if held() and not STOP:  # mai lasciare la posizione senza stop: se un'operazione si è rotta a metà, si vende
+                market("sell", f"{TAG}-err-{now:%Y%m%d%H%M}", qty=f"{held():.9f}")
     if held():
-        market("sell", f"ts-end-{pd.Timestamp.now('UTC'):%Y%m%d%H%M}", qty=f"{held():.9f}")
+        market("sell", f"{TAG}-end-{pd.Timestamp.now('UTC'):%Y%m%d%H%M}", qty=f"{held():.9f}")
     print("Bot Timestral fermo.", flush=True)
 
 
@@ -326,6 +358,12 @@ def prova():
     assert step(plan, 105, 98) == (3, "stop")                              # stop e obiettivi nello stesso minuto: vince lo stop
     plan = {"entrata": 100, "s": 1, "tp": [101, 102, 103], "k": 0}
     assert step(plan, 103.5, 99.5) == (3, "TP3")                           # tutti gli obiettivi in un colpo
+    idx = pd.date_range("2026-11-25 14:00", "2026-11-27 22:00", freq="min", tz="UTC")
+    cal = [{"date": "2026-11-25", "open": "09:30", "close": "16:00"},   # 26: festivo (non c'è), 27: mezza giornata
+           {"date": "2026-11-27", "open": "09:30", "close": "13:00"}]
+    ok = borsa(idx, cal)
+    assert ok.sum() == 390 + 210 and idx[ok][0] == pd.Timestamp("2026-11-25 14:30", tz="UTC")
+    assert idx[ok][-1] == pd.Timestamp("2026-11-27 17:59", tz="UTC")
     print("prove superate")
 
 
