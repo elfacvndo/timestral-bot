@@ -1,2 +1,3 @@
 apertura,chiusura,mercato,strategia,segnali,punteggio,investito,entrata,uscita,motivo,lordo_pct,costi_pct,netto_pct,netto_usd
 2026-11-12 13:30,2026-11-12 14:20,SOL/USD,rimbalzo,rimbalzo caso,0.1565,1960.78,81.423787514,80.60192019,stop,-1.0094,0.6,-1.6094,-31.56
+2026-11-12 14:30,2026-11-12 14:52,SOL/USD,rimbalzo,rimbalzo caso,0.1656,1960.11,80.73670654,80.73670654,riavvio (posizione già chiusa),0.0,0.6,-0.6,-11.76
