@@ -11,3 +11,4 @@ apertura,chiusura,mercato,strategia,segnali,punteggio,investito,entrata,uscita,m
 2026-11-12 20:15,2026-11-12 20:45,QQQ,caso,caso,0.0523,1.99,687.244,687.166,chiusura Borsa,-0.0113,0.01,-0.0213,-0.0
 2026-11-12 20:00,2026-11-12 20:45,GLD,caso,slancio caso,0.2579,1.99,355.728,355.454,chiusura Borsa,-0.077,0.01,-0.087,-0.0
 2026-11-12 20:30,2026-11-12 21:30,SOL/USD,caso,caso,0.0474,11.77,81.4387,81.507,tempo,0.0839,0.6,-0.5161,-0.06
+2026-11-12 22:00,2026-11-12 23:00,SOL/USD,slancio,slancio caso,0.5122,11.76,81.3101,81.3635,tempo,0.0657,0.6,-0.5343,-0.06
