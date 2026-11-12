@@ -1,0 +1,35 @@
+# Sveglia del bot orario (repository privato elfacvndo/TradingBot): il suo cron "ogni ora" GitHub lo fa partire solo
+# ogni ~6 ore. Questo lavoro, sempre acceso come Timestral (qui i minuti sono gratis), lo lancia ogni ora al minuto 7.
+# Il cron di là resta di riserva; due giri sulla stessa candela non fanno danni (ordini con ID unico per candela).
+# Serve il secret TRADINGBOT_TOKEN: token fine-grained solo su elfacvndo/TradingBot, permesso "Actions: read and write".
+# Se il token manca o scade il lavoro fallisce e GitHub manda una mail. Spegnere: Actions → "Sveglia bot orario" → Disable.
+name: Sveglia bot orario
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "47 * * * *"  # riserva se il rilancio si perde
+concurrency: sveglia
+permissions:
+  actions: write  # si rilancia da solo
+jobs:
+  sveglia:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - run: |
+          end=$(( $(date +%s) + 330 * 60 ))
+          while :; do
+            wait=$(( (427 - $(date +%s) % 3600 + 3600) % 3600 ))  # secondi al prossimo minuto 7
+            [ $(( $(date +%s) + wait )) -lt $end ] || break
+            sleep $wait
+            gh workflow run bot.yml --ref main -R elfacvndo/TradingBot
+            echo "giro orario lanciato alle $(date -u '+%H:%M') UTC"
+            sleep 60
+          done
+        env:
+          GH_TOKEN: ${{ secrets.TRADINGBOT_TOKEN }}
+      - name: Rilancia
+        run: gh workflow run sveglia.yml --ref main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
