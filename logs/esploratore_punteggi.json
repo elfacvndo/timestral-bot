@@ -1,5 +1,5 @@
 {
- "aggiornato": "2026-11-12 18:45",
+ "aggiornato": "2026-11-12 19:30",
  "mercati": {
   "QQQ": {
    "strategie": [
@@ -9,7 +9,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.2015
+     "preferenza": 0.2295
     },
     {
      "strategia": "rimbalzo",
@@ -17,7 +17,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.225
+     "preferenza": 0.211
     },
     {
      "strategia": "rottura",
@@ -25,7 +25,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.2225
+     "preferenza": 0.207
     },
     {
      "strategia": "slancio",
@@ -33,7 +33,7 @@
      "vinte": 0,
      "medio_pct": -0.3585,
      "totale_usd": -0.01,
-     "preferenza": 0.05
+     "preferenza": 0.0545
     },
     {
      "strategia": "timestral",
@@ -41,7 +41,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.2075
+     "preferenza": 0.204
     },
     {
      "strategia": "caso",
@@ -49,10 +49,10 @@
      "vinte": 0,
      "medio_pct": -0.2725,
      "totale_usd": -0.01,
-     "preferenza": 0.065
+     "preferenza": 0.064
     }
    ],
-   "fuori": 0.0285
+   "fuori": 0.03
   },
   "GLD": {
    "strategie": [
@@ -62,7 +62,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.1505
+     "preferenza": 0.163
     },
     {
      "strategia": "rimbalzo",
@@ -70,7 +70,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.1635
+     "preferenza": 0.1875
     },
     {
      "strategia": "rottura",
@@ -78,7 +78,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.1625
+     "preferenza": 0.1695
     },
     {
      "strategia": "slancio",
@@ -86,7 +86,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.17
+     "preferenza": 0.1645
     },
     {
      "strategia": "timestral",
@@ -94,18 +94,18 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.16
+     "preferenza": 0.159
     },
     {
      "strategia": "caso",
-     "operazioni": 1,
+     "operazioni": 2,
      "vinte": 1,
-     "medio_pct": 0.1314,
+     "medio_pct": 0.0449,
      "totale_usd": 0.0,
-     "preferenza": 0.1815
+     "preferenza": 0.1415
     }
    ],
-   "fuori": 0.012
+   "fuori": 0.015
   },
   "SOL/USD": {
    "strategie": [
@@ -115,7 +115,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.2225
+     "preferenza": 0.219
     },
     {
      "strategia": "rimbalzo",
@@ -123,7 +123,7 @@
      "vinte": 0,
      "medio_pct": -1.1047,
      "totale_usd": -43.32,
-     "preferenza": 0.021
+     "preferenza": 0.0285
     },
     {
      "strategia": "rottura",
@@ -131,7 +131,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.2355
+     "preferenza": 0.2185
     },
     {
      "strategia": "slancio",
@@ -139,7 +139,7 @@
      "vinte": 0,
      "medio_pct": -0.9498,
      "totale_usd": -0.11,
-     "preferenza": 0.0845
+     "preferenza": 0.085
     },
     {
      "strategia": "timestral",
@@ -147,7 +147,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.239
+     "preferenza": 0.2645
     },
     {
      "strategia": "caso",
@@ -155,10 +155,10 @@
      "vinte": 0,
      "medio_pct": -0.3352,
      "totale_usd": -0.04,
-     "preferenza": 0.147
+     "preferenza": 0.1425
     }
    ],
-   "fuori": 0.0505
+   "fuori": 0.042
   }
  }
 }

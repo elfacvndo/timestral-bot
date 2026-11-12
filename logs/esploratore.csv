@@ -6,3 +6,4 @@ apertura,chiusura,mercato,strategia,segnali,punteggio,investito,entrata,uscita,m
 2026-11-12 17:15,2026-11-12 18:17,GLD,caso,rimbalzo caso,0.3771,1.99,354.934,355.436,tempo,0.1414,0.01,0.1314,0.0
 2026-11-12 17:45,2026-11-12 18:45,QQQ,caso,tendenza slancio caso,0.1204,1.99,691.844,690.028,tempo,-0.2625,0.01,-0.2725,-0.01
 2026-11-12 17:45,2026-11-12 18:45,SOL/USD,caso,slancio caso,1.7102,11.77,81.295,81.5103,tempo,0.2648,0.6,-0.3352,-0.04
+2026-11-12 18:30,2026-11-12 19:30,GLD,caso,rimbalzo slancio caso,0.2579,1.99,355.596,355.484,tempo,-0.0315,0.01,-0.0415,-0.0
