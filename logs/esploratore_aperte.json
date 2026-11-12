@@ -18,5 +18,15 @@
   "entrata": 81.295,
   "stop": 80.39431964285714,
   "obiettivo": 82.49590714285713
+ },
+ "GLD": {
+  "apertura": "2026-11-12 18:30",
+  "strategia": "caso",
+  "segnali": "rimbalzo slancio caso",
+  "punteggio": 0.25786354796057853,
+  "investito": 1.9899998478479999,
+  "entrata": 355.596,
+  "stop": 354.40992857142857,
+  "obiettivo": 357.1774285714286
  }
 }
