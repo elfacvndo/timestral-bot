@@ -53,6 +53,7 @@ import signal
 import subprocess
 import sys
 import time
+from collections import Counter
 from datetime import timedelta
 
 import numpy as np
@@ -70,7 +71,7 @@ SIZE, MAX_DAILY_LOSS = 0.02, 0.01
 HOLD = 60          # minuti massimi di un'operazione (= 4 candele da 15)
 N0 = 2             # quanto pesa il "non so niente" iniziale, in operazioni finte a risultato zero
 MINUTES = int(os.environ.get("MINUTI", 330))
-OPS, OPEN = bot.LOGS / "esploratore.csv", bot.LOGS / "esploratore_aperte.json"
+OPS, OPEN, SCORES = bot.LOGS / "esploratore.csv", bot.LOGS / "esploratore_aperte.json", bot.LOGS / "esploratore_punteggi.json"
 FIELDS = ["apertura", "chiusura", "mercato", "strategia", "segnali", "punteggio", "investito", "entrata", "uscita",
           "motivo", "lordo_pct", "costi_pct", "netto_pct", "netto_usd"]
 
@@ -129,6 +130,28 @@ def choose(market, candidates, rows, rng):
     return (pick if best > 0 else None), best
 
 
+def scores(rows, rng, n=2000):
+    """Per ogni mercato: come va ogni strategia e, se adesso tutte volessero entrare, in quale parte delle n pescate il
+    bot sceglierebbe ciascuna o resterebbe fuori. È quello che ha imparato, da mostrare nella dashboard."""
+    out = {}
+    for m in MARKETS:
+        picks = Counter(choose(m, ARMS, rows, rng)[0] for _ in range(n))
+        arms = []
+        for a in ARMS:
+            mine = [x for x in rows if x["mercato"] == m and x["strategia"] == a]
+            r = [float(x["netto_pct"]) for x in mine]
+            arms.append({"strategia": a, "operazioni": len(r), "vinte": sum(v > 0 for v in r),
+                         "medio_pct": round(sum(r) / len(r), 4) if r else None,
+                         "totale_usd": round(sum(float(x["netto_usd"]) for x in mine), 2), "preferenza": picks[a] / n})
+        out[m] = {"strategie": arms, "fuori": picks[None] / n}
+    return out
+
+
+def save_scores(rows, rng):
+    bot.LOGS.mkdir(exist_ok=True)
+    SCORES.write_text(json.dumps({"aggiornato": f"{pd.Timestamp.now('UTC'):%Y-%m-%d %H:%M}", "mercati": scores(rows, rng)}, indent=1))
+
+
 def exit_reason(t, h, l, now, closing):
     """Perché chiudere l'operazione t col minuto chiuso (massimo h, minimo l), o "" per restare dentro."""
     if l <= t["stop"]:
@@ -179,6 +202,7 @@ def close(sym, t, why, now, op):
     print(row, flush=True)
     del op[sym]
     save_open(op)
+    save_scores(history(), np.random.default_rng())
     bot.push(f"esploratore {sym} {t['strategia']} {row['netto_pct']:+.2f}%")
 
 
@@ -240,6 +264,7 @@ def main():
             q = held(sym)
             order(sym, "sell", f"es-{sym.replace('/', '')}-start-{pd.Timestamp.now('UTC'):%Y%m%d%H%M}", qty=f"{q:.9f}")
             notify(f"all'avvio c'erano {sym} senza registro: venduti.")
+    save_scores(history(), rng)
     end, stopped_day = time.time() + MINUTES * 60, None
     print(f"Esploratore avviato su {bot.BASE}, mercati {', '.join(MARKETS)}, {MINUTES} minuti; aperte: {list(op)}", flush=True)
     while not bot.STOP and time.time() < end:
@@ -287,8 +312,8 @@ def prova():
     picks = [choose("QQQ", ARMS, [], rng)[0] for _ in range(1000)]
     assert sum(p is not None for p in picks) > 950, "senza storia deve provare quasi sempre"
     # Con una strategia che guadagna e una che perde, sceglie quasi sempre quella che guadagna.
-    rows = [{"mercato": "QQQ", "strategia": "tendenza", "netto_pct": str(v)} for v in rng.normal(0.3, 0.3, 30)]
-    rows += [{"mercato": "QQQ", "strategia": "caso", "netto_pct": str(v)} for v in rng.normal(-0.3, 0.3, 30)]
+    rows = [{"mercato": "QQQ", "strategia": "tendenza", "netto_pct": str(v), "netto_usd": "1"} for v in rng.normal(0.3, 0.3, 30)]
+    rows += [{"mercato": "QQQ", "strategia": "caso", "netto_pct": str(v), "netto_usd": "-1"} for v in rng.normal(-0.3, 0.3, 30)]
     picks = [choose("QQQ", ["tendenza", "caso"], rows, rng)[0] for _ in range(1000)]
     assert picks.count("tendenza") > 950 and picks.count("caso") < 20, picks.count("caso")
     # Se tutto quello che ha provato perde, quasi sempre resta fuori; un'altra moneta non c'entra.
@@ -305,6 +330,11 @@ def prova():
     assert s["rimbalzo"] and not s["tendenza"] and not s["slancio"] and not s["rottura"]
     b = bars(up, pd.DataFrame({"h": up + 0.01, "l": up - 0.01}))
     assert len(b) == 69 and b.index[-1] == pd.Timestamp("2026-11-02 17:00", tz="UTC") and 0 < atr(b) < 1
+    sc = scores(rows, rng, 500)["QQQ"]
+    assert abs(sum(a["preferenza"] for a in sc["strategie"]) + sc["fuori"] - 1) < 1e-9
+    assert sc["strategie"][0]["strategia"] == "tendenza" and sc["strategie"][0]["operazioni"] == 30
+    pref = {a["strategia"]: a["preferenza"] for a in sc["strategie"]}  # le mai provate si provano ancora, "caso" quasi mai
+    assert max(pref, key=pref.get) == "tendenza" and pref["caso"] < 0.02
     # Uscite.
     t = {"apertura": "2026-11-12 10:00", "stop": 99.0, "obiettivo": 102.0}
     at = pd.Timestamp("2026-11-12 10:20", tz="UTC")
