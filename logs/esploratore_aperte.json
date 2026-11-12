@@ -1,1 +1,12 @@
-{}
+{
+ "QQQ": {
+  "apertura": "2026-11-12 16:30",
+  "strategia": "slancio",
+  "segnali": "tendenza slancio caso",
+  "punteggio": 0.3782238995734474,
+  "investito": 1.9899997643639997,
+  "entrata": 692.742,
+  "stop": 688.2618214285714,
+  "obiettivo": 698.7155714285714
+ }
+}
