@@ -29,3 +29,4 @@ apertura,chiusura,mercato,strategia,segnali,punteggio,investito,entrata,uscita,m
 2026-11-13 18:30,2026-11-13 19:31,XLE,caso,tendenza slancio caso,0.2743,1.97,64.608,64.622,tempo,0.0217,0.01,0.0117,0.0002
 2026-11-13 19:00,2026-11-13 20:00,DIA,slancio,slancio timestral caso,0.1168,1.97,522.314,522.856,tempo,0.1038,0.01,0.0938,0.0018
 2026-11-13 19:45,2026-11-13 20:45,TLT,caso,caso,0.3149,1.97,79.378,79.342,tempo,-0.0454,0.01,-0.0554,-0.0011
+2026-11-13 20:00,2026-11-13 20:45,IWM,caso,slancio caso,0.3501,1.97,277.208,277.102,chiusura Borsa,-0.0382,0.01,-0.0482,-0.001
