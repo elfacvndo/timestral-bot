@@ -8,5 +8,15 @@
   "entrata": 64.538,
   "stop": 64.16192857142856,
   "obiettivo": 65.03942857142857
+ },
+ "SLV": {
+  "apertura": "2026-11-13 17:45",
+  "strategia": "slancio",
+  "segnali": "slancio caso",
+  "punteggio": 0.22986312824815852,
+  "investito": 1.9699999852319998,
+  "entrata": 44.388,
+  "stop": 44.08425,
+  "obiettivo": 44.793
  }
 }
