@@ -1,6 +1,4 @@
 apertura,chiusura,mercato,strategia,segnali,punteggio,investito,entrata,uscita,motivo,lordo_pct,costi_pct,netto_pct,netto_usd
-2026-11-12 13:30,2026-11-12 14:20,SOL/USD,rimbalzo,rimbalzo caso,0.1565,1960.78,81.423787514,80.60192019,stop,-1.0094,0.6,-1.6094,-31.56
-2026-11-12 14:30,2026-11-12 14:52,SOL/USD,rimbalzo,rimbalzo caso,0.1656,1960.11,80.73670654,80.73670654,riavvio (posizione già chiusa),0.0,0.6,-0.6,-11.76
 2026-11-12 16:30,2026-11-12 17:30,QQQ,slancio,tendenza slancio caso,0.3782,1.99,692.742,690.328,tempo,-0.3485,0.01,-0.3585,-0.01
 2026-11-12 16:30,2026-11-12 17:30,SOL/USD,slancio,slancio caso,1.1483,11.77,81.77,81.484,tempo,-0.3498,0.6,-0.9498,-0.11
 2026-11-12 17:15,2026-11-12 18:17,GLD,caso,rimbalzo caso,0.3771,1.99,354.934,355.436,tempo,0.1414,0.01,0.1314,0.0

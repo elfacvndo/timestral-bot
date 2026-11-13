@@ -22,13 +22,17 @@ jobs:
             wait=$(( (427 - $(date +%s) % 3600 + 3600) % 3600 ))  # secondi al prossimo minuto 7
             [ $(( $(date +%s) + wait )) -lt $end ] || break
             sleep $wait
-            gh workflow run bot.yml --ref main -R elfacvndo/TradingBot
-            echo "giro orario lanciato alle $(date -u '+%H:%M') UTC"
+            if gh workflow run bot.yml --ref main -R elfacvndo/TradingBot; then  # un lancio fallito non ferma la sveglia
+              echo "giro orario lanciato alle $(date -u '+%H:%M') UTC"
+            else
+              echo "::warning::lancio del giro orario fallito alle $(date -u '+%H:%M') UTC (token scaduto?)"
+            fi
             sleep 60
           done
         env:
           GH_TOKEN: ${{ secrets.TRADINGBOT_TOKEN }}
       - name: Rilancia
+        if: ${{ !cancelled() }}
         run: gh workflow run sveglia.yml --ref main
         env:
           GH_TOKEN: ${{ github.token }}

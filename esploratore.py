@@ -19,10 +19,13 @@ L'idea in parole semplici: più strategie sono in gara. Ogni 15 minuti, su ogni 
 strategia dice "entrerei" oppure no. Fra quelle che entrerebbero il bot ne sceglie una pescando a sorte, ma con una
 sorte truccata dai risultati: ogni strategia ha un punteggio (quanto ha reso in media, costi pagati) e un'incertezza
 (quante volte l'ha provata). Pesca un numero vicino al punteggio, tanto più sparso quanto meno la conosce
-(campionamento di Thompson). Vince il numero più alto; se è sotto zero, il bot resta fuori.
-Così all'inizio entra quasi sempre (non sa niente, prova tutto) e col passare delle operazioni usa di più le strategie
-che guadagnano e sempre meno quelle che perdono, senza spegnerle mai del tutto: se il mercato cambia se ne accorge.
-Ogni operazione chiusa entra nel registro, e il registro è la sua memoria: al giro dopo riparte da lì.
+(campionamento di Thompson); vince il numero più alto. Poi, per decidere se entrare, pesca un secondo numero solo per la
+vincitrice: se è sotto zero resta fuori. (Col solo numero più alto, più strategie in gara = più entrate per caso.)
+Così all'inizio entra una volta su due (non sa niente) e col passare delle operazioni usa di più le strategie che
+guadagnano e sempre meno quelle che perdono, senza spegnerle mai del tutto: se il mercato cambia se ne accorge.
+Ogni operazione chiusa entra nel registro, e il registro è la sua memoria: al giro dopo riparte da lì. L'uscita è
+uguale per tutte, quindi il risultato vale per OGNI strategia che aveva il segnale acceso (colonna "segnali"), non solo
+per quella sorteggiata; "caso" è accesa sempre, quindi è la media di tutte le operazioni: il metro pulito.
 
 Strategie (sulle candele da 15 minuti fatte coi minuti di Alpaca):
 - tendenza: prezzo sopra la media di 20 candele, e quella sopra la media di 50 (il mercato sale da un po');
@@ -37,11 +40,12 @@ l'entrata, obiettivo a 2 volte sopra, e comunque dopo 60 minuti. Sulle azioni si
 chiusura della Borsa.
 
 Mercati: solo simboli che gli altri bot non toccano (Alpaca tiene una sola posizione per simbolo e il conto è lo stesso):
-QQQ (Nasdaq) e GLD (oro) a Borsa USA aperta, niente commissioni; SOL/USD (crypto) 24 ore su 24, 0,25% a ordine.
-Ogni operazione investe il 2% del conto (su SOL almeno 12 $: Alpaca non accetta ordini crypto sotto 10 $); al massimo tre insieme (6%). Kill switch: se nel giorno (UTC) l'esploratore
+QQQ (Nasdaq) e GLD (oro) a Borsa USA aperta, niente commissioni. SOL/USD tolto il 2026-11-13: con 0,6% di costi contro
+~0,3% di movimento in un'ora perde per costruzione (revisione del 2026-11-12, punto B); una SOL rimasta si vende all'avvio.
+Ogni operazione investe il 2% del conto; al massimo due insieme (4%). Kill switch: se nel giorno (UTC) l'esploratore
 ha perso più dell'1% del conto, niente operazioni nuove fino al giorno dopo. Solo acquisti.
-Il punteggio è "netto": risultato dai prezzi eseguiti meno i costi stimati (0,6% andata e ritorno su SOL, 0,01% sulle
-azioni), così impara anche quanto costa entrare, comunque il paper registri le commissioni.
+Il punteggio è "netto": risultato dai prezzi eseguiti meno i costi stimati (0,01% sulle azioni), così impara anche
+quanto costa entrare, comunque il paper registri le commissioni.
 
     uv run esploratore.py --prova   # prove della logica, niente rete
     uv run esploratore.py           # il bot (servono le chiavi APCA_API_KEY_ID / APCA_API_SECRET_KEY)
@@ -64,12 +68,10 @@ import bot  # helper del bot Timestral: chiamate ad Alpaca, ordini con ID unico,
 MARKETS = {  # simbolo: (azione?, costi stimati andata e ritorno in %, oscillazione tipica di un'ora in %)
     "QQQ": (True, 0.01, 0.3),
     "GLD": (True, 0.01, 0.3),
-    "SOL/USD": (False, 0.6, 1.0),
 }
+RETIRED = ["SOL/USD"]  # mercati tolti: se all'avvio c'è ancora una posizione, si chiude
 ARMS = ["tendenza", "rimbalzo", "rottura", "slancio", "timestral", "caso"]
 SIZE, MAX_DAILY_LOSS = 0.02, 0.01
-CRYPTO_MIN = 12   # Alpaca rifiuta ordini crypto sotto 10 $ ("minimal amount of order 10"): 12 lascia margine all'uscita
-CONTO_DAL = "2026-11-12 14:50"  # conto Paper da 100 $: le operazioni di prima (conto da 100.000 $) non contano nel kill switch
 HOLD = 60          # minuti massimi di un'operazione (= 4 candele da 15)
 N0 = 2             # quanto pesa il "non so niente" iniziale, in operazioni finte a risultato zero
 MINUTES = int(os.environ.get("MINUTI", 330))
@@ -117,19 +119,24 @@ def history():
         return []
 
 
+def results(market, arm, rows):
+    """Le operazioni chiuse che contano per una strategia: tutte quelle in cui aveva il segnale acceso."""
+    return [x for x in rows if x["mercato"] == market and arm in x["segnali"].split()]
+
+
 def choose(market, candidates, rows, rng):
     """Campionamento di Thompson sul rendimento netto medio (%). Ritorna (strategia, numero pescato); strategia None
-    se il numero più alto è sotto zero (meglio stare fuori)."""
+    se un secondo numero pescato per la vincitrice è sotto zero (meglio stare fuori)."""
     sd0 = MARKETS[market][2]
-    best, pick = -np.inf, None
+    best, pick, post = -np.inf, None, {}
     for a in candidates:
-        r = [float(x["netto_pct"]) for x in rows if x["mercato"] == market and x["strategia"] == a]
+        r = [float(x["netto_pct"]) for x in results(market, a, rows)]
         n = len(r)
-        sd = max(float(np.std(r)) if n > 1 else 0.0, sd0)
-        x = rng.normal(sum(r) / (n + N0), sd / np.sqrt(n + N0))
+        post[a] = (sum(r) / (n + N0), max(float(np.std(r)) if n > 1 else 0.0, sd0) / np.sqrt(n + N0))
+        x = rng.normal(*post[a])
         if x > best:
             best, pick = x, a
-    return (pick if best > 0 else None), best
+    return (pick if pick and rng.normal(*post[pick]) > 0 else None), best
 
 
 def scores(rows, rng, n=2000):
@@ -140,12 +147,12 @@ def scores(rows, rng, n=2000):
         picks = Counter(choose(m, ARMS, rows, rng)[0] for _ in range(n))
         arms = []
         for a in ARMS:
-            mine = [x for x in rows if x["mercato"] == m and x["strategia"] == a]
+            mine = results(m, a, rows)
             r = [float(x["netto_pct"]) for x in mine]
             arms.append({"strategia": a, "operazioni": len(r), "vinte": sum(v > 0 for v in r),
                          "medio_pct": round(sum(r) / len(r), 4) if r else None,
                          "totale_usd": round(sum(float(x["netto_usd"]) for x in mine), 2), "preferenza": picks[a] / n})
-        out[m] = {"strategie": arms, "fuori": picks[None] / n}
+        out[m] = {"strategie": arms, "fuori": picks[None] / n, "chiuse": sum(x["mercato"] == m for x in rows)}
     return out
 
 
@@ -183,18 +190,23 @@ def save_open(op):
 
 def close(sym, t, why, now, op):
     q = held(sym)
-    x = order(sym, "sell", f"es-{sym.replace('/', '')}-out-{now:%Y%m%d%H%M}", qty=f"{q:.9f}") if q else None
-    if x and x["status"] != "filled":
+    if not q:  # la posizione non c'è più (chiusa a mano, o dal giro prima): niente riga finta nella memoria
+        print(f"{sym}: posizione già chiusa, la tolgo dalle aperte senza registrarla", flush=True)
+        del op[sym]
+        save_open(op)
+        return
+    x = order(sym, "sell", f"es-{sym.replace('/', '')}-out-{now:%Y%m%d%H%M}", qty=f"{q:.9f}")
+    if x["status"] != "filled":
         print(f"{sym}: vendita non eseguita ({x['status']}), riprovo al prossimo minuto", flush=True)
         return
-    out = float(x["filled_avg_price"]) if x else t["entrata"]
+    out = float(x["filled_avg_price"])
     gross = (out / t["entrata"] - 1) * 100
     cost = MARKETS[sym][1]
     row = {"apertura": t["apertura"], "chiusura": f"{now:%Y-%m-%d %H:%M}", "mercato": sym, "strategia": t["strategia"],
            "segnali": t["segnali"], "punteggio": round(t["punteggio"], 4), "investito": round(t["investito"], 2),
-           "entrata": t["entrata"], "uscita": out, "motivo": why if x else f"{why} (posizione già chiusa)",
+           "entrata": t["entrata"], "uscita": out, "motivo": why,
            "lordo_pct": round(gross, 4), "costi_pct": cost, "netto_pct": round(gross - cost, 4),
-           "netto_usd": round(t["investito"] * (gross - cost) / 100, 2)}
+           "netto_usd": round(t["investito"] * (gross - cost) / 100, 4)}  # al centesimo, su 2 $ quasi tutto sarebbe "0,00"
     new = not OPS.exists()
     with OPS.open("a", newline="") as f:
         w = csv.DictWriter(f, fieldnames=FIELDS)
@@ -224,14 +236,20 @@ def enter(sym, now, equity, cash, op, rows, rng, model):
     print(f"{now:%H:%M} {sym} {P:.2f} segnali {','.join(cand)} → {arm or 'fuori'} ({score:+.3f})", flush=True)
     if not arm:
         return
-    amount = SIZE * equity if stock else max(SIZE * equity, CRYPTO_MIN)
+    amount = SIZE * equity
     if amount > cash * 0.9 or amount < 1.5:  # azioni: Alpaca non accetta ordini sotto ~1 $
         print(f"{sym}: importo fuori misura ({amount:.2f} $, contanti {cash:.2f} $), salto", flush=True)
         return
     o = order(sym, "buy", f"es-{sym.replace('/', '')}-in-{arm}-{now:%Y%m%d%H%M}", notional=f"{amount:.2f}")
-    if o["status"] != "filled":
-        print(f"{sym}: acquisto non eseguito ({o['status']})", flush=True)
-        return
+    if o["status"] != "filled":  # non confermato in 20 secondi: si annulla e si guarda cosa è stato comprato davvero,
+        try:                     # altrimenti resterebbe una posizione fantasma e al quarto d'ora dopo si ricomprerebbe
+            bot.api("DELETE", f"/v2/orders/{o['id']}")
+        except RuntimeError:
+            pass  # nel frattempo eseguito o già chiuso
+        o = bot.api("GET", f"/v2/orders/{o['id']}")
+        if not float(o["filled_qty"] or 0):
+            print(f"{sym}: acquisto non eseguito ({o['status']})", flush=True)
+            return
     E, a = float(o["filled_avg_price"]), atr(b)
     op[sym] = {"apertura": f"{now:%Y-%m-%d %H:%M}", "strategia": arm, "segnali": " ".join(cand), "punteggio": score,
                "investito": float(o["filled_qty"]) * E, "entrata": E, "stop": E - 1.5 * a, "obiettivo": E + 2 * a}
@@ -260,9 +278,18 @@ def main():
         op = json.loads(OPEN.read_text())
     except (FileNotFoundError, ValueError):
         op = {}
-    for sym in MARKETS:
-        for o in bot.api("GET", f"/v2/orders?status=open&symbols={sym}") or []:
+    # Filtro in Python, non con "symbols=": Alpaca a volte scrive il simbolo con la barra, a volte senza.
+    mine = [*MARKETS, *RETIRED]
+    for o in bot.api("GET", "/v2/orders?status=open&limit=500") or []:
+        if o["symbol"].replace("/", "") in [m.replace("/", "") for m in mine]:
             bot.api("DELETE", f"/v2/orders/{o['id']}")
+    for sym in RETIRED:
+        if bot.api("GET", f"/v2/positions/{sym.replace('/', '')}", missing_ok=True):
+            bot.api("DELETE", f"/v2/positions/{sym.replace('/', '')}")  # chiude anche un residuo sotto il minimo d'ordine
+            notify(f"{sym} non è più fra i mercati: posizione rimasta chiusa.")
+        op.pop(sym, None)
+    save_open(op)
+    for sym in MARKETS:
         if sym in op and not held(sym):
             close(sym, op[sym], "riavvio", pd.Timestamp.now("UTC"), op)
         elif sym not in op and held(sym):
@@ -282,7 +309,7 @@ def main():
             acct = bot.api("GET", "/v2/account")
             equity, cash = float(acct["equity"]), float(acct["non_marginable_buying_power"])
             rows = history()
-            lost = sum(float(r["netto_usd"]) for r in rows if r["chiusura"].startswith(f"{now:%Y-%m-%d}") and r["apertura"] >= CONTO_DAL)
+            lost = sum(float(r["netto_usd"]) for r in rows if r["chiusura"].startswith(f"{now:%Y-%m-%d}"))
             if lost < -MAX_DAILY_LOSS * equity and stopped_day != f"{now:%Y-%m-%d}":
                 stopped_day = f"{now:%Y-%m-%d}"
                 notify(f"kill switch: oggi {lost:.2f} $. Niente operazioni nuove fino a domani (UTC).")
@@ -313,16 +340,22 @@ def main():
 
 def prova():
     rng = np.random.default_rng(0)
-    # Senza storia non sa niente: entra quasi sempre (prova tutto).
-    picks = [choose("QQQ", ARMS, [], rng)[0] for _ in range(1000)]
-    assert sum(p is not None for p in picks) > 950, "senza storia deve provare quasi sempre"
-    # Con una strategia che guadagna e una che perde, sceglie quasi sempre quella che guadagna.
-    rows = [{"mercato": "QQQ", "strategia": "tendenza", "netto_pct": str(v), "netto_usd": "1"} for v in rng.normal(0.3, 0.3, 30)]
-    rows += [{"mercato": "QQQ", "strategia": "caso", "netto_pct": str(v), "netto_usd": "-1"} for v in rng.normal(-0.3, 0.3, 30)]
-    picks = [choose("QQQ", ["tendenza", "caso"], rows, rng)[0] for _ in range(1000)]
-    assert picks.count("tendenza") > 950 and picks.count("caso") < 20, picks.count("caso")
-    # Se tutto quello che ha provato perde, quasi sempre resta fuori; un'altra moneta non c'entra.
-    picks = [choose("QQQ", ["caso"], rows, rng)[0] for _ in range(1000)]
+    # Senza storia non sa niente: entra circa una volta su due, con qualunque numero di strategie in gara (la seconda
+    # pescata toglie il "più strategie = più entrate per caso").
+    for arms in (["caso"], ARMS):
+        n = sum(choose("QQQ", arms, [], rng)[0] is not None for _ in range(2000))
+        assert 850 < n < 1150, (arms, n)
+    # Una strategia che guadagna e il resto che perde: sceglie quasi sempre quella che guadagna. Ogni operazione conta per
+    # tutte le strategie col segnale acceso: "caso" è sempre accesa, quindi vale la media di tutto.
+    rows = [{"mercato": "QQQ", "strategia": "tendenza", "segnali": "tendenza caso", "netto_pct": str(v), "netto_usd": "1"}
+            for v in rng.normal(0.3, 0.3, 30)]
+    rows += [{"mercato": "QQQ", "strategia": "caso", "segnali": "rottura caso", "netto_pct": str(v), "netto_usd": "-1"}
+             for v in rng.normal(-0.5, 0.3, 30)]
+    assert len(results("QQQ", "caso", rows)) == 60 and len(results("QQQ", "tendenza", rows)) == 30
+    picks = [choose("QQQ", ["tendenza", "rottura", "caso"], rows, rng)[0] for _ in range(1000)]
+    assert picks.count("tendenza") > 950 and picks.count("rottura") < 20, Counter(picks)
+    # Se tutto quello che ha provato perde, quasi sempre resta fuori; un altro mercato non c'entra.
+    picks = [choose("QQQ", ["rottura"], rows, rng)[0] for _ in range(1000)]
     assert picks.count(None) > 980
     assert sum(choose("GLD", ["caso"], rows, rng)[0] is not None for _ in range(1000)) > 400
     # Strategie su candele finte: salita regolare → tendenza, slancio, rottura; crollo → rimbalzo.
@@ -336,10 +369,19 @@ def prova():
     b = bars(up, pd.DataFrame({"h": up + 0.01, "l": up - 0.01}))
     assert len(b) == 69 and b.index[-1] == pd.Timestamp("2026-11-02 17:00", tz="UTC") and 0 < atr(b) < 1
     sc = scores(rows, rng, 500)["QQQ"]
-    assert abs(sum(a["preferenza"] for a in sc["strategie"]) + sc["fuori"] - 1) < 1e-9
+    assert abs(sum(a["preferenza"] for a in sc["strategie"]) + sc["fuori"] - 1) < 1e-9 and sc["chiuse"] == 60
     assert sc["strategie"][0]["strategia"] == "tendenza" and sc["strategie"][0]["operazioni"] == 30
-    pref = {a["strategia"]: a["preferenza"] for a in sc["strategie"]}  # le mai provate si provano ancora, "caso" quasi mai
-    assert max(pref, key=pref.get) == "tendenza" and pref["caso"] < 0.02
+    pref = {a["strategia"]: a["preferenza"] for a in sc["strategie"]}  # le mai provate si provano ancora, "rottura" quasi mai
+    assert max(pref, key=pref.get) == "tendenza" and pref["rottura"] < 0.02
+    # Posizione già chiusa quando si va a chiudere: si toglie dalle aperte, nessuna riga finta nella memoria.
+    g, saved = globals(), {k: globals()[k] for k in ("held", "save_open", "OPS")}
+    g.update(held=lambda sym: 0.0, save_open=lambda op: None, OPS=bot.LOGS / "prova_inesistente.csv")
+    try:
+        op = {"QQQ": {"apertura": "2026-11-12 10:00", "entrata": 100.0}}
+        close("QQQ", op["QQQ"], "tempo", pd.Timestamp("2026-11-12 11:00", tz="UTC"), op)
+        assert op == {} and not g["OPS"].exists()
+    finally:
+        g.update(saved)
     # Uscite.
     t = {"apertura": "2026-11-12 10:00", "stop": 99.0, "obiettivo": 102.0}
     at = pd.Timestamp("2026-11-12 10:20", tz="UTC")

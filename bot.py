@@ -55,6 +55,7 @@ import pandas as pd
 BASE = "https://paper-api.alpaca.markets"  # PAPER: solo soldi finti. Non cambiare.
 STOCK = os.environ.get("MERCATO", "ETH") == "SPY"
 H, CTX = 15, 1024
+RETRY = 30  # minuti in più per riprovare una vendita finale non eseguita
 if STOCK:
     SYMBOL, POSITION, TAG, NAME = "SPY", "/v2/positions/SPY", "spy", "_spy"
     TIF = "day"
@@ -252,8 +253,8 @@ def trade(now, P, prob, s, tps, equity, cash):
     """Un'operazione intera: compra, segue stop e obiettivi minuto per minuto, chiude entro 15 minuti."""
     budget = equity * SHARE
     amount = min(budget, RISK * budget * P / s, cash * 0.98)
-    if not STOCK:  # Alpaca rifiuta ordini crypto sotto 10 $: si compra almeno 12 $ e si esce in un pezzo solo
-        amount = max(amount, CRYPTO_MIN) if cash * 0.98 >= CRYPTO_MIN else 0
+    if not STOCK and amount < CRYPTO_MIN:  # Alpaca rifiuta ordini crypto sotto 10 $: gonfiare l'importo scavalcherebbe
+        amount = 0                          # il rischio dell'1%, quindi si salta l'operazione
     if amount < 5:  # azioni: Alpaca vuole almeno ~1 $ a ordine e l'uscita è in tre pezzi
         print(f"importo troppo piccolo ({amount:.2f} $), salto", flush=True)
         return 0.0
@@ -262,32 +263,45 @@ def trade(now, P, prob, s, tps, equity, cash):
     if o["status"] != "filled":
         print(f"acquisto non eseguito: {o['status']}", flush=True)
         return 0.0
-    E, spent = float(o["filled_avg_price"]), float(o["filled_qty"]) * float(o["filled_avg_price"])
+    E = float(o["filled_avg_price"])
+    spent = float(o["filled_qty"]) * E * (1 + FEE)  # anche la commissione d'acquisto
     plan = {"entrata": E, "s": s, "tp": [E + t * s for t in tps], "k": 0}
     qty, piece = held(), round(float(o["filled_qty"]) / 3, 9)
     got, exits, why = 0.0, [], "tempo"
     entered = now.floor("min")
-    for minute in range(1, H + 1):
+    for minute in range(1, H + RETRY + 1):
         wait_minute()
-        if STOP:
-            n, why = 3 - plan["k"], "bot fermato"
-        else:
-            _, hl = minutes(pd.Timestamp.now("UTC"), 3)
-            bar = hl.iloc[-1]
-            n, why = (0, "") if bar.isna().any() else step(plan, bar.h, bar.l)
-            if minute == H and plan["k"] < 3:   # 15 minuti passati: si chiude il resto
-                n, why, plan["k"] = n + 3 - plan["k"], why or "tempo", 3
-        if n:
-            if not STOCK:  # crypto: un pezzo solo (pezzi sotto 10 $ rifiutati), al primo obiettivo o allo stop si esce
+        n = 0
+        if plan["k"] < 3:
+            if STOP:
+                n, why, plan["k"] = 3 - plan["k"], "bot fermato", 3
+            else:
+                _, hl = minutes(pd.Timestamp.now("UTC"), 3)
+                bar = hl.iloc[-1]
+                n, w = (0, "") if bar.isna().any() else step(plan, bar.h, bar.l)
+                why = w or why
+                if minute >= H and plan["k"] < 3:   # 15 minuti passati: si chiude il resto
+                    n, why, plan["k"] = n + 3 - plan["k"], w or "tempo", 3
+            if n and not STOCK:  # crypto: un pezzo solo (pezzi sotto 10 $ rifiutati), al primo obiettivo o allo stop si esce
                 plan["k"] = 3
-            last = plan["k"] == 3 or STOP
-            q = f"{held():.9f}" if last else f"{min(n * piece, qty):.9f}"
-            x = market("sell", f"{TAG}-sell-{tag}-{minute}", qty=q)
-            if x["status"] == "filled":
-                got += float(x["filled_qty"]) * float(x["filled_avg_price"]) * (1 - FEE)
-                exits.append(f"{why} {float(x['filled_avg_price']):.2f}")
-        if plan["k"] == 3 or STOP:
+        if plan["k"] == 3:  # si esce di tutto: se la vendita non si esegue, si riprova al minuto dopo
+            q = held()
+            if not q:
+                break
+            x = market("sell", f"{TAG}-sell-{tag}-{minute}", qty=f"{q:.9f}")
+        elif n:
+            x = market("sell", f"{TAG}-sell-{tag}-{minute}", qty=f"{min(n * piece, qty):.9f}")
+        else:
+            continue
+        if float(x["filled_qty"] or 0):  # anche una vendita eseguita a metà conta per quello che ha venduto
+            got += float(x["filled_qty"]) * float(x["filled_avg_price"]) * (1 - FEE)
+            exits.append(f"{why} {float(x['filled_avg_price']):.2f}")
+        if x["status"] != "filled":
+            print(f"vendita non eseguita ({x['status']}), riprovo al prossimo minuto", flush=True)
+        elif plan["k"] == 3:
             break
+    if held():  # dopo 15 + RETRY minuti ancora dentro: niente perdita finta nel registro, ci pensa main()
+        raise RuntimeError(f"vendita non eseguita dopo {H + RETRY} minuti: {SYMBOL} ancora in mano")
     pnl = got - spent
     record({"apertura": f"{entered:%Y-%m-%d %H:%M}", "chiusura": f"{pd.Timestamp.now('UTC'):%Y-%m-%d %H:%M}",
             "probabilita": round(prob, 3), "investito": round(spent, 2), "entrata": round(E, 2), "stop": round(E - s, 2),
@@ -305,12 +319,16 @@ def main():
     from timestral import TimestralForecaster
     model = TimestralForecaster.from_pretrained("mistralai/Timestral-5M")
     # Riconciliazione: lo stato vero è quello del broker. ETH rimasti da un giro interrotto si vendono.
-    for o in api("GET", "/v2/orders?status=open&limit=500"):
-        if o["symbol"].replace("/", "") == SYMBOL.replace("/", ""):
-            api("DELETE", f"/v2/orders/{o['id']}")
-    if held():
-        x = market("sell", f"{TAG}-start-{pd.Timestamp.now('UTC'):%Y%m%d%H%M}", qty=f"{held():.9f}")
-        notify(f"All'avvio c'erano {SYMBOL} di un giro interrotto: venduti ({x['status']}).")
+    # Se qui qualcosa va storto il giro non muore: ci riprova il primo minuto con un errore (vedi sotto).
+    try:
+        for o in api("GET", "/v2/orders?status=open&limit=500"):
+            if o["symbol"].replace("/", "") == SYMBOL.replace("/", ""):
+                api("DELETE", f"/v2/orders/{o['id']}")
+        if held():
+            x = market("sell", f"{TAG}-start-{pd.Timestamp.now('UTC'):%Y%m%d%H%M}", qty=f"{held():.9f}")
+            notify(f"All'avvio c'erano {SYMBOL} di un giro interrotto: venduti ({x['status']}).")
+    except Exception as e:
+        print(f"ERRORE nella riconciliazione: {e}", flush=True)
     end = time.time() + MINUTES * 60
     print(f"Bot Timestral avviato su {BASE} — {SYMBOL}, {MINUTES} minuti.", flush=True)
     while not STOP and time.time() < end:
@@ -348,10 +366,16 @@ def main():
             push(f"operazione {now:%Y-%m-%d %H:%M} UTC: {pnl:+.2f} $")
         except Exception as e:  # rete, dati, broker: si salta il minuto e si riprova al prossimo
             print(f"ERRORE: {e}", flush=True)
-            if held() and not STOP:  # mai lasciare la posizione senza stop: se un'operazione si è rotta a metà, si vende
-                market("sell", f"{TAG}-err-{now:%Y%m%d%H%M}", qty=f"{held():.9f}")
-    if held():
-        market("sell", f"{TAG}-end-{pd.Timestamp.now('UTC'):%Y%m%d%H%M}", qty=f"{held():.9f}")
+            try:
+                if held() and not STOP:  # mai lasciare la posizione senza stop: se un'operazione si è rotta a metà, si vende
+                    market("sell", f"{TAG}-err-{now:%Y%m%d%H%M}", qty=f"{held():.9f}")
+            except Exception as e2:  # anche questa può fallire: si riprova al prossimo minuto
+                print(f"ERRORE nella vendita d'emergenza: {e2}", flush=True)
+    try:
+        if held():
+            market("sell", f"{TAG}-end-{pd.Timestamp.now('UTC'):%Y%m%d%H%M}", qty=f"{held():.9f}")
+    except Exception as e:  # il giro dopo la ritrova nella riconciliazione
+        print(f"ERRORE nella vendita finale: {e}", flush=True)
     print("Bot Timestral fermo.", flush=True)
 
 
@@ -360,7 +384,7 @@ def prova():
     prob, (s, tps) = decide(100, q)
     assert prob >= 0.8 and abs(s - (100 - q[Q10])) < 1e-9 and 0 < tps[0] < tps[1] < tps[2]
     assert decide(100, 100 + np.linspace(-2, 2, 21))[1] is None          # fascia centrata: fuori
-    assert decide(100, 100 + np.linspace(-0.2, 0.6, 21))[1] is None      # sale, ma meno dei costi: fuori
+    assert STOCK or decide(100, 100 + np.linspace(-0.2, 0.6, 21))[1] is None  # sale, ma meno dei costi ETH: fuori
     plan = {"entrata": 100, "s": 1, "tp": [101, 102, 103], "k": 0}
     assert step(plan, 100.5, 99.5) == (0, "") and plan["k"] == 0       # niente tocca niente
     assert step(plan, 101.2, 99.5) == (1, "TP1") and plan["k"] == 1       # TP1, lo stop sale all'entrata
@@ -375,6 +399,34 @@ def prova():
     ok = borsa(idx, cal)
     assert ok.sum() == 390 + 210 and idx[ok][0] == pd.Timestamp("2026-11-25 14:30", tz="UTC")
     assert idx[ok][-1] == pd.Timestamp("2026-11-27 17:59", tz="UTC")
+    # Broker finto: la prima vendita è rifiutata, la seconda si esegue. Si riprova al minuto dopo, e il registro ha il
+    # risultato vero con le due commissioni, non una perdita finta del 100%. Se non si vende mai: errore, niente riga.
+    g = globals()
+    saved = {k: g[k] for k in ("market", "held", "minutes", "wait_minute", "record")}
+    for never in (False, True):
+        pos, sells, rec = [0.0], [], []
+
+        def fake_market(side, cid, qty=None, notional=None):
+            if side == "buy":
+                pos[0] = float(notional) / 100
+                return {"status": "filled", "filled_qty": str(pos[0]), "filled_avg_price": "100"}
+            sells.append(cid)
+            if len(sells) == 1 or never:
+                return {"status": "rejected", "filled_qty": "0", "filled_avg_price": None}
+            q, pos[0] = pos[0], 0.0
+            return {"status": "filled", "filled_qty": str(q), "filled_avg_price": "99"}
+
+        g.update(market=fake_market, held=lambda: pos[0], wait_minute=lambda: None, record=rec.append,
+                 minutes=lambda now, n, *a: (None, pd.DataFrame({"h": [100.2], "l": [98.5]})))  # tocca lo stop a 99
+        try:
+            pnl = trade(pd.Timestamp("2026-11-13 10:00", tz="UTC"), 100, 0.6, 1.0, (1, 2, 3), 1000, 1000)
+            assert not never, "vendita mai eseguita: doveva essere un errore"
+            assert len(sells) == 2 and len(rec) == 1 and pos[0] == 0 and rec[0]["motivo"] == "stop"
+            assert abs(pnl - (99 * (1 - FEE) - 100 * (1 + FEE))) < 1e-9, pnl
+        except RuntimeError as e:
+            assert never and "non eseguita" in str(e) and not rec and len(sells) == H + RETRY
+        finally:
+            g.update(saved)
     print("prove superate")
 
 

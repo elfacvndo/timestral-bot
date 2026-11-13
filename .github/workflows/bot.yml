@@ -1,5 +1,6 @@
 # Bot Timestral sempre acceso: un giro dura ~5 ore e mezza (GitHub ferma un lavoro dopo 6), poi si rilancia da solo.
-# Due lavori insieme, uno per mercato: ETH (24 ore su 24) e SPY (aspetta la Borsa USA aperta, 15:30-22:00 italiane).
+# Solo SPY (aspetta la Borsa USA aperta, 15:30-22:00 italiane). ETH spento il 2026-11-13: con 0,55% di costi contro
+# ~0,3% di movimento perde per costruzione. Per riaccenderlo: rimettere ETH nella lista "mercato" qui sotto.
 # Il cron ogni ora è la riserva se il rilancio si perde. Mai due giri insieme (concurrency).
 # Spegnere: GitHub → Actions → "Bot Timestral" → "..." → Disable workflow. Il bot vende quello che ha prima di uscire.
 name: Bot Timestral
@@ -17,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false   # se un mercato si rompe, l'altro continua
       matrix:
-        mercato: [ETH, SPY]
+        mercato: [SPY]
     runs-on: ubuntu-latest
     timeout-minutes: 355
     steps:
@@ -42,7 +43,8 @@ jobs:
           git commit -q -m "registro ${{ matrix.mercato }} $(date -u '+%Y-%m-%d %H:%M') UTC"
           for i in 1 2 3; do git pull -q --rebase && git push -q && exit 0; sleep 10; done; exit 1  # l'altro mercato può spingere insieme
       - name: Rilancia
-        if: success() && matrix.mercato == 'ETH'   # uno solo rilancia; il giro nuovo parte quando sono finiti tutti e due
+        # anche dopo un errore: un giro morto non deve spegnere il bot. Solo un annullamento a mano lo ferma.
+        if: ${{ !cancelled() && matrix.mercato == 'SPY' }}
         run: gh workflow run bot.yml --ref main
         env:
           GH_TOKEN: ${{ github.token }}

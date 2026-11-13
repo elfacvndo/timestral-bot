@@ -37,7 +37,7 @@ jobs:
           git commit -q -m "registro esploratore $(date -u '+%Y-%m-%d %H:%M') UTC"
           for i in 1 2 3; do git pull -q --rebase && git push -q && exit 0; sleep 10; done; exit 1
       - name: Rilancia
-        if: success()
+        if: ${{ !cancelled() }}   # anche dopo un errore: le operazioni aperte le riprende solo il giro dopo
         run: gh workflow run esploratore.yml --ref main
         env:
           GH_TOKEN: ${{ github.token }}
