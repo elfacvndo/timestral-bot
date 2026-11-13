@@ -1,14 +1,4 @@
 {
- "TLT": {
-  "apertura": "2026-11-13 19:45",
-  "strategia": "caso",
-  "segnali": "caso",
-  "punteggio": 0.31494959503898856,
-  "investito": 1.969999949502,
-  "entrata": 79.378,
-  "stop": 79.27996428571429,
-  "obiettivo": 79.50871428571429
- },
  "IWM": {
   "apertura": "2026-11-13 20:00",
   "strategia": "caso",
