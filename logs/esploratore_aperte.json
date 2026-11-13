@@ -1,12 +1,1 @@
-{
- "SLV": {
-  "apertura": "2026-11-13 15:15",
-  "strategia": "caso",
-  "segnali": "rimbalzo timestral caso",
-  "punteggio": 0.17556177147159405,
-  "investito": 1.9699999929120002,
-  "entrata": 44.618,
-  "stop": 44.39996428571429,
-  "obiettivo": 44.90871428571429
- }
-}
+{}
