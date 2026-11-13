@@ -1,1 +1,12 @@
-{}
+{
+ "IWM": {
+  "apertura": "2026-11-13 15:30",
+  "strategia": "caso",
+  "segnali": "rimbalzo caso",
+  "punteggio": 0.15865121894628137,
+  "investito": 1.96999984222,
+  "entrata": 275.774,
+  "stop": 274.71007142857144,
+  "obiettivo": 277.19257142857145
+ }
+}
