@@ -26,3 +26,4 @@ apertura,chiusura,mercato,strategia,segnali,punteggio,investito,entrata,uscita,m
 2026-11-13 16:45,2026-11-13 17:45,QQQ,slancio,slancio caso,-0.0782,1.97,674.194,677.346,tempo,0.4675,0.01,0.4575,0.009
 2026-11-13 17:30,2026-11-13 18:30,XLE,timestral,tendenza slancio timestral caso,0.2843,1.97,64.538,64.602,tempo,0.0992,0.01,0.0892,0.0018
 2026-11-13 17:45,2026-11-13 18:46,SLV,slancio,slancio caso,0.2299,1.97,44.388,44.272,tempo,-0.2613,0.01,-0.2713,-0.0053
+2026-11-13 18:30,2026-11-13 19:31,XLE,caso,tendenza slancio caso,0.2743,1.97,64.608,64.622,tempo,0.0217,0.01,0.0117,0.0002
