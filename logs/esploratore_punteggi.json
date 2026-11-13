@@ -1,5 +1,5 @@
 {
- "aggiornato": "2026-11-13 17:45",
+ "aggiornato": "2026-11-13 18:30",
  "mercati": {
   "QQQ": {
    "strategie": [
@@ -9,7 +9,7 @@
      "vinte": 0,
      "medio_pct": -0.3155,
      "totale_usd": -0.02,
-     "preferenza": 0.006
+     "preferenza": 0.005
     },
     {
      "strategia": "rimbalzo",
@@ -17,7 +17,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.114
+     "preferenza": 0.121
     },
     {
      "strategia": "rottura",
@@ -25,7 +25,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.115
+     "preferenza": 0.12
     },
     {
      "strategia": "slancio",
@@ -33,7 +33,7 @@
      "vinte": 1,
      "medio_pct": -0.0578,
      "totale_usd": -0.01,
-     "preferenza": 0.0645
+     "preferenza": 0.059
     },
     {
      "strategia": "timestral",
@@ -41,7 +41,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.1305
+     "preferenza": 0.1245
     },
     {
      "strategia": "caso",
@@ -49,10 +49,10 @@
      "vinte": 1,
      "medio_pct": -0.0487,
      "totale_usd": -0.01,
-     "preferenza": 0.0405
+     "preferenza": 0.0375
     }
    ],
-   "fuori": 0.5295,
+   "fuori": 0.533,
    "chiuse": 4
   },
   "GLD": {
@@ -63,7 +63,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.101
+     "preferenza": 0.091
     },
     {
      "strategia": "rimbalzo",
@@ -71,7 +71,7 @@
      "vinte": 1,
      "medio_pct": 0.0449,
      "totale_usd": 0.0,
-     "preferenza": 0.1015
+     "preferenza": 0.099
     },
     {
      "strategia": "rottura",
@@ -79,7 +79,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.087
+     "preferenza": 0.091
     },
     {
      "strategia": "slancio",
@@ -87,7 +87,7 @@
      "vinte": 0,
      "medio_pct": -0.0643,
      "totale_usd": 0.0,
-     "preferenza": 0.044
+     "preferenza": 0.0395
     },
     {
      "strategia": "timestral",
@@ -95,7 +95,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.116
+     "preferenza": 0.094
     },
     {
      "strategia": "caso",
@@ -103,10 +103,10 @@
      "vinte": 1,
      "medio_pct": 0.001,
      "totale_usd": 0.0,
-     "preferenza": 0.0495
+     "preferenza": 0.0505
     }
    ],
-   "fuori": 0.501,
+   "fuori": 0.535,
    "chiuse": 3
   },
   "IWM": {
@@ -117,7 +117,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.0635
+     "preferenza": 0.0755
     },
     {
      "strategia": "rimbalzo",
@@ -125,7 +125,7 @@
      "vinte": 1,
      "medio_pct": 0.2475,
      "totale_usd": 0.0,
-     "preferenza": 0.1525
+     "preferenza": 0.138
     },
     {
      "strategia": "rottura",
@@ -133,7 +133,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.0635
+     "preferenza": 0.0765
     },
     {
      "strategia": "slancio",
@@ -141,7 +141,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.0765
+     "preferenza": 0.076
     },
     {
      "strategia": "timestral",
@@ -149,7 +149,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.079
+     "preferenza": 0.066
     },
     {
      "strategia": "caso",
@@ -157,10 +157,10 @@
      "vinte": 1,
      "medio_pct": 0.2475,
      "totale_usd": 0.0,
-     "preferenza": 0.137
+     "preferenza": 0.1345
     }
    ],
-   "fuori": 0.428,
+   "fuori": 0.4335,
    "chiuse": 1
   },
   "DIA": {
@@ -171,7 +171,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.0965
+     "preferenza": 0.084
     },
     {
      "strategia": "rimbalzo",
@@ -179,7 +179,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.0785
+     "preferenza": 0.0855
     },
     {
      "strategia": "rottura",
@@ -187,7 +187,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.0815
+     "preferenza": 0.0885
     },
     {
      "strategia": "slancio",
@@ -195,7 +195,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.0805
+     "preferenza": 0.083
     },
     {
      "strategia": "timestral",
@@ -203,7 +203,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.082
+     "preferenza": 0.0915
     },
     {
      "strategia": "caso",
@@ -211,10 +211,10 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.075
+     "preferenza": 0.0775
     }
    ],
-   "fuori": 0.506,
+   "fuori": 0.49,
    "chiuse": 0
   },
   "TLT": {
@@ -225,7 +225,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.0845
+     "preferenza": 0.085
     },
     {
      "strategia": "rimbalzo",
@@ -233,7 +233,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.0905
+     "preferenza": 0.0845
     },
     {
      "strategia": "rottura",
@@ -241,7 +241,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.0845
+     "preferenza": 0.0725
     },
     {
      "strategia": "slancio",
@@ -249,7 +249,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.074
+     "preferenza": 0.0925
     },
     {
      "strategia": "timestral",
@@ -257,7 +257,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.091
+     "preferenza": 0.0835
     },
     {
      "strategia": "caso",
@@ -265,10 +265,10 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.085
+     "preferenza": 0.0865
     }
    ],
-   "fuori": 0.4905,
+   "fuori": 0.4955,
    "chiuse": 0
   },
   "SLV": {
@@ -279,7 +279,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.139
+     "preferenza": 0.1225
     },
     {
      "strategia": "rimbalzo",
@@ -287,7 +287,7 @@
      "vinte": 0,
      "medio_pct": -0.5165,
      "totale_usd": -0.01,
-     "preferenza": 0.006
+     "preferenza": 0.007
     },
     {
      "strategia": "rottura",
@@ -295,7 +295,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.141
+     "preferenza": 0.1575
     },
     {
      "strategia": "slancio",
@@ -303,7 +303,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.132
+     "preferenza": 0.1375
     },
     {
      "strategia": "timestral",
@@ -311,7 +311,7 @@
      "vinte": 0,
      "medio_pct": -0.5165,
      "totale_usd": -0.01,
-     "preferenza": 0.0075
+     "preferenza": 0.006
     },
     {
      "strategia": "caso",
@@ -319,21 +319,21 @@
      "vinte": 0,
      "medio_pct": -0.5165,
      "totale_usd": -0.01,
-     "preferenza": 0.006
+     "preferenza": 0.0075
     }
    ],
-   "fuori": 0.5685,
+   "fuori": 0.562,
    "chiuse": 1
   },
   "XLE": {
    "strategie": [
     {
      "strategia": "tendenza",
-     "operazioni": 2,
-     "vinte": 1,
-     "medio_pct": -0.1199,
+     "operazioni": 3,
+     "vinte": 2,
+     "medio_pct": -0.0502,
      "totale_usd": -0.0,
-     "preferenza": 0.0125
+     "preferenza": 0.02
     },
     {
      "strategia": "rimbalzo",
@@ -341,7 +341,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.075
+     "preferenza": 0.084
     },
     {
      "strategia": "rottura",
@@ -349,35 +349,35 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.073
+     "preferenza": 0.085
     },
     {
      "strategia": "slancio",
-     "operazioni": 1,
-     "vinte": 0,
-     "medio_pct": -0.2515,
-     "totale_usd": -0.01,
-     "preferenza": 0.013
+     "operazioni": 2,
+     "vinte": 1,
+     "medio_pct": -0.0811,
+     "totale_usd": -0.0,
+     "preferenza": 0.02
     },
     {
      "strategia": "timestral",
-     "operazioni": 1,
-     "vinte": 1,
-     "medio_pct": 0.5881,
+     "operazioni": 2,
+     "vinte": 2,
+     "medio_pct": 0.3387,
      "totale_usd": 0.01,
-     "preferenza": 0.3925
+     "preferenza": 0.3755
     },
     {
      "strategia": "caso",
-     "operazioni": 3,
-     "vinte": 2,
-     "medio_pct": 0.1161,
+     "operazioni": 4,
+     "vinte": 3,
+     "medio_pct": 0.1094,
      "totale_usd": 0.01,
-     "preferenza": 0.119
+     "preferenza": 0.113
     }
    ],
-   "fuori": 0.315,
-   "chiuse": 3
+   "fuori": 0.3025,
+   "chiuse": 4
   },
   "EFA": {
    "strategie": [
@@ -387,7 +387,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.1
+     "preferenza": 0.0925
     },
     {
      "strategia": "rimbalzo",
@@ -395,7 +395,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.1055
+     "preferenza": 0.093
     },
     {
      "strategia": "rottura",
@@ -403,7 +403,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.101
+     "preferenza": 0.1065
     },
     {
      "strategia": "slancio",
@@ -411,7 +411,7 @@
      "vinte": 0,
      "medio_pct": -0.2078,
      "totale_usd": -0.0,
-     "preferenza": 0.037
+     "preferenza": 0.0275
     },
     {
      "strategia": "timestral",
@@ -419,7 +419,7 @@
      "vinte": 0,
      "medio_pct": null,
      "totale_usd": 0,
-     "preferenza": 0.105
+     "preferenza": 0.1025
     },
     {
      "strategia": "caso",
@@ -427,10 +427,10 @@
      "vinte": 0,
      "medio_pct": -0.2078,
      "totale_usd": -0.0,
-     "preferenza": 0.0295
+     "preferenza": 0.035
     }
    ],
-   "fuori": 0.522,
+   "fuori": 0.543,
    "chiuse": 1
   }
  }
