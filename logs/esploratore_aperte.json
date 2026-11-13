@@ -1,14 +1,4 @@
 {
- "EFA": {
-  "apertura": "2026-11-13 14:45",
-  "strategia": "caso",
-  "segnali": "slancio caso",
-  "punteggio": 0.16357490424250345,
-  "investito": 1.9699999031760003,
-  "entrata": 104.168,
-  "stop": 104.00942857142857,
-  "obiettivo": 104.37942857142858
- },
  "XLE": {
   "apertura": "2026-11-13 14:45",
   "strategia": "caso",
