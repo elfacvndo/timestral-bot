@@ -1,14 +1,4 @@
 {
- "XLE": {
-  "apertura": "2026-11-13 14:45",
-  "strategia": "caso",
-  "segnali": "timestral caso",
-  "punteggio": 0.14943829030494854,
-  "investito": 1.9699999861719997,
-  "entrata": 64.198,
-  "stop": 63.94085714285713,
-  "obiettivo": 64.54085714285713
- },
  "SLV": {
   "apertura": "2026-11-13 15:15",
   "strategia": "caso",

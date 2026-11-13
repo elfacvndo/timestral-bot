@@ -18,3 +18,4 @@ apertura,chiusura,mercato,strategia,segnali,punteggio,investito,entrata,uscita,m
 2026-11-13 06:00,2026-11-13 06:57,SOL/USD,slancio,rimbalzo slancio caso,0.0194,11.77,78.465,79.994812471,obiettivo,1.9497,0.6,1.3497,0.16
 2026-11-13 07:00,2026-11-13 08:00,SOL/USD,slancio,slancio caso,0.41,11.77,80.132,79.68,tempo,-0.5641,0.6,-1.1641,-0.14
 2026-11-13 14:45,2026-11-13 15:03,EFA,caso,slancio caso,0.1636,1.97,104.168,103.962,stop,-0.1978,0.01,-0.2078,-0.0041
+2026-11-13 14:45,2026-11-13 15:24,XLE,caso,timestral caso,0.1494,1.97,64.198,64.582,obiettivo,0.5981,0.01,0.5881,0.0116
