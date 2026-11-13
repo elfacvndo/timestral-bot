@@ -39,8 +39,13 @@ Uscita uguale per tutte, così si confrontano alla pari: stop a 1,5 volte il mov
 l'entrata, obiettivo a 2 volte sopra, e comunque dopo 60 minuti. Sulle azioni si chiude anche 15 minuti prima della
 chiusura della Borsa.
 
-Mercati: solo simboli che gli altri bot non toccano (Alpaca tiene una sola posizione per simbolo e il conto è lo stesso):
-QQQ (Nasdaq) e GLD (oro) a Borsa USA aperta, niente commissioni. SOL/USD tolto il 2026-11-13: con 0,6% di costi contro
+Mercati: solo simboli che gli altri bot non toccano (Alpaca tiene una sola posizione per simbolo e il conto è lo stesso),
+fondi di Borsa USA senza commissioni, a Borsa aperta: QQQ (Nasdaq), GLD (oro), IWM (piccole aziende), DIA (Dow Jones),
+TLT (titoli di Stato), SLV (argento), XLE (energia), EFA (Borse fuori dagli USA); gli ultimi sei dal 2026-11-13.
+Il bot impara anche DOVE operare: ogni quarto d'ora ogni mercato libero fa la sua pescata, e fra i mercati vince il numero
+più alto (al massimo 2 operazioni insieme). Un mercato dove tutto perde pesca numeri bassi e viene scelto sempre meno.
+Memoria: per ogni mercato e strategia contano solo le ultime 200 operazioni, così se il mercato cambia il bot se ne
+accorge (le vecchie escono dal conto) invece di trascinarsi anni di storia. SOL/USD tolto il 2026-11-13: con 0,6% di costi contro
 ~0,3% di movimento in un'ora perde per costruzione (revisione del 2026-11-12, punto B); una SOL rimasta si vende all'avvio.
 Ogni operazione investe il 2% del conto; al massimo due insieme (4%). Kill switch: se nel giorno (UTC) l'esploratore
 ha perso più dell'1% del conto, niente operazioni nuove fino al giorno dopo. Solo acquisti.
@@ -66,12 +71,19 @@ import pandas as pd
 import bot  # helper del bot Timestral: chiamate ad Alpaca, ordini con ID unico, minuti, salvataggio del registro
 
 MARKETS = {  # simbolo: (azione?, costi stimati andata e ritorno in %, oscillazione tipica di un'ora in %)
-    "QQQ": (True, 0.01, 0.3),
-    "GLD": (True, 0.01, 0.3),
+    "QQQ": (True, 0.01, 0.3),  # Nasdaq
+    "GLD": (True, 0.01, 0.3),  # oro
+    "IWM": (True, 0.01, 0.3),  # piccole aziende USA
+    "DIA": (True, 0.01, 0.3),  # Dow Jones
+    "TLT": (True, 0.01, 0.3),  # titoli di Stato USA a lungo termine
+    "SLV": (True, 0.01, 0.3),  # argento
+    "XLE": (True, 0.01, 0.3),  # energia
+    "EFA": (True, 0.01, 0.3),  # Borse dei Paesi sviluppati fuori dagli USA
 }
 RETIRED = ["SOL/USD"]  # mercati tolti: se all'avvio c'è ancora una posizione, si chiude
 ARMS = ["tendenza", "rimbalzo", "rottura", "slancio", "timestral", "caso"]
-SIZE, MAX_DAILY_LOSS = 0.02, 0.01
+SIZE, MAX_DAILY_LOSS, MAX_OPEN = 0.02, 0.01, 2  # al massimo 2 operazioni insieme (4% del conto)
+RECENT = 200       # memoria: per ogni mercato e strategia contano le ultime 200 operazioni (il mercato cambia)
 HOLD = 60          # minuti massimi di un'operazione (= 4 candele da 15)
 N0 = 2             # quanto pesa il "non so niente" iniziale, in operazioni finte a risultato zero
 MINUTES = int(os.environ.get("MINUTI", 330))
@@ -120,8 +132,8 @@ def history():
 
 
 def results(market, arm, rows):
-    """Le operazioni chiuse che contano per una strategia: tutte quelle in cui aveva il segnale acceso."""
-    return [x for x in rows if x["mercato"] == market and arm in x["segnali"].split()]
+    """Le operazioni chiuse che contano per una strategia: le ultime RECENT in cui aveva il segnale acceso."""
+    return [x for x in rows if x["mercato"] == market and arm in x["segnali"].split()][-RECENT:]
 
 
 def choose(market, candidates, rows, rng):
@@ -220,9 +232,9 @@ def close(sym, t, why, now, op):
     bot.push(f"esploratore {sym} {t['strategia']} {row['netto_pct']:+.2f}%")
 
 
-def enter(sym, now, equity, cash, op, rows, rng, model):
-    stock = MARKETS[sym][0]
-    closes, hl = bot.minutes(now, bot.CTX, sym, stock)
+def propose(sym, now, rows, rng, model):
+    """Cosa farebbe la sorte truccata su questo mercato adesso: None (fuori) o la proposta con il suo numero pescato."""
+    closes, hl = bot.minutes(now, bot.CTX, sym, MARKETS[sym][0])
     if len(closes) < bot.CTX:
         raise RuntimeError(f"solo {len(closes)} minuti di storia")
     b = bars(closes, hl)
@@ -234,8 +246,17 @@ def enter(sym, now, equity, cash, op, rows, rng, model):
     cand = [a for a in ARMS if sig[a]]
     arm, score = choose(sym, cand, rows, rng)
     print(f"{now:%H:%M} {sym} {P:.2f} segnali {','.join(cand)} → {arm or 'fuori'} ({score:+.3f})", flush=True)
-    if not arm:
-        return
+    return {"sym": sym, "arm": arm, "score": score, "cand": cand, "b": b} if arm else None
+
+
+def best(proposals, free):
+    """Fra i mercati, vince chi ha pescato il numero più alto: così il bot impara anche DOVE operare (un mercato dove
+    tutto perde ha numeri bassi e viene scelto sempre meno). Al massimo `free` proposte."""
+    return sorted((p for p in proposals if p), key=lambda p: -p["score"])[:max(free, 0)]
+
+
+def enter(p, now, equity, cash, op):
+    sym, arm, score, cand, b = p["sym"], p["arm"], p["score"], p["cand"], p["b"]
     amount = SIZE * equity
     if amount > cash * 0.9 or amount < 1.5:  # azioni: Alpaca non accetta ordini sotto ~1 $
         print(f"{sym}: importo fuori misura ({amount:.2f} $, contanti {cash:.2f} $), salto", flush=True)
@@ -317,24 +338,35 @@ def main():
             print(f"ERRORE: {e}", flush=True)
             continue
         closing = pd.Timestamp(clock["next_close"]) - now < timedelta(minutes=15)
-        for sym, (stock, _, _) in MARKETS.items():
+        for sym in list(op):
             try:
-                if sym in op:
-                    _, hl = bot.minutes(now, 3, sym, stock)
-                    bar = hl.iloc[-1]
-                    if not bar.isna().any():
-                        why = exit_reason(op[sym], bar.h, bar.l, now, stock and closing)
-                        if why:
-                            close(sym, op[sym], why, now, op)
-                    continue
-                if now.minute % 15 or stopped_day == f"{now:%Y-%m-%d}":
-                    continue
-                if stock and (not clock["is_open"] or now.tz_convert(bot.NY).time() < pd.Timestamp("09:45").time()
-                              or pd.Timestamp(clock["next_close"]) - now < timedelta(minutes=30)):
-                    continue
-                enter(sym, now, equity, cash, op, rows, rng, model)
+                stock = MARKETS[sym][0]
+                _, hl = bot.minutes(now, 3, sym, stock)
+                bar = hl.iloc[-1]
+                if not bar.isna().any():
+                    why = exit_reason(op[sym], bar.h, bar.l, now, stock and closing)
+                    if why:
+                        close(sym, op[sym], why, now, op)
             except Exception as e:  # rete, dati, broker: si salta questo mercato e si riprova al prossimo minuto
                 print(f"ERRORE {sym}: {e}", flush=True)
+        if now.minute % 15 or stopped_day == f"{now:%Y-%m-%d}" or len(op) >= MAX_OPEN:
+            continue
+        if not clock["is_open"] or now.tz_convert(bot.NY).time() < pd.Timestamp("09:45").time() \
+                or pd.Timestamp(clock["next_close"]) - now < timedelta(minutes=30):
+            continue  # oggi tutti i mercati sono azioni: si entra solo a Borsa aperta
+        proposals = []
+        for sym in MARKETS:
+            if sym in op:
+                continue
+            try:
+                proposals.append(propose(sym, now, rows, rng, model))
+            except Exception as e:
+                print(f"ERRORE {sym}: {e}", flush=True)
+        for p in best(proposals, MAX_OPEN - len(op)):
+            try:
+                enter(p, now, equity, cash, op)
+            except Exception as e:
+                print(f"ERRORE {p['sym']}: {e}", flush=True)
     print(f"Esploratore fermo; operazioni aperte che il giro dopo riprende: {list(op)}", flush=True)
 
 
@@ -382,6 +414,20 @@ def prova():
         assert op == {} and not g["OPS"].exists()
     finally:
         g.update(saved)
+    # Memoria corta: contano solo le ultime RECENT operazioni. Una strategia che perdeva e adesso guadagna torna in gioco.
+    old = [{"mercato": "QQQ", "segnali": "tendenza caso", "netto_pct": "-0.5", "netto_usd": "0"}] * 500
+    new = [{"mercato": "QQQ", "segnali": "tendenza caso", "netto_pct": "0.5", "netto_usd": "0"}] * RECENT
+    assert len(results("QQQ", "tendenza", old + new)) == RECENT
+    assert all(choose("QQQ", ["tendenza"], old + new, rng)[0] == "tendenza" for _ in range(200))
+    # Fra i mercati vince il numero più alto, al massimo i posti liberi; chi resta fuori non conta.
+    ps = [{"sym": "QQQ", "score": 0.1}, None, {"sym": "GLD", "score": 0.4}, {"sym": "TLT", "score": 0.2}]
+    assert [p["sym"] for p in best(ps, 2)] == ["GLD", "TLT"] and best(ps, 0) == [] and best([None], 2) == []
+    # Ogni mercato lo impara da solo: dove tutto perde resta quasi sempre fuori, dove guadagna entra.
+    rows2 = [{"mercato": m, "segnali": "caso", "netto_pct": str(v), "netto_usd": "0"}
+             for m, v in (("GLD", -0.4), ("TLT", 0.4)) for _ in range(50)]
+    wins = Counter(p["sym"] for _ in range(500) for p in best(
+        [{"sym": m, "score": sc} if a else None for m in ("GLD", "TLT") for a, sc in [choose(m, ["caso"], rows2, rng)]], 1))
+    assert wins["TLT"] > 480 and wins["GLD"] < 5, wins
     # Uscite.
     t = {"apertura": "2026-11-12 10:00", "stop": 99.0, "obiettivo": 102.0}
     at = pd.Timestamp("2026-11-12 10:20", tz="UTC")
