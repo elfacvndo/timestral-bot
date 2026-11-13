@@ -8,5 +8,15 @@
   "entrata": 674.194,
   "stop": 669.7191785714285,
   "obiettivo": 680.1604285714286
+ },
+ "XLE": {
+  "apertura": "2026-11-13 17:30",
+  "strategia": "timestral",
+  "segnali": "tendenza slancio timestral caso",
+  "punteggio": 0.2843302306102622,
+  "investito": 1.969999990776,
+  "entrata": 64.538,
+  "stop": 64.16192857142856,
+  "obiettivo": 65.03942857142857
  }
 }
