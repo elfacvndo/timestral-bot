@@ -1,12 +1,1 @@
-{
- "XLE": {
-  "apertura": "2026-11-13 15:30",
-  "strategia": "caso",
-  "segnali": "tendenza slancio caso",
-  "punteggio": 0.08028256171237722,
-  "investito": 1.9699999874,
-  "entrata": 64.598,
-  "stop": 64.27764285714285,
-  "obiettivo": 65.02514285714285
- }
-}
+{}
