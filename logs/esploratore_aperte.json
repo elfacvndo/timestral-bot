@@ -1,1 +1,12 @@
-{}
+{
+ "XLE": {
+  "apertura": "2026-11-13 16:30",
+  "strategia": "caso",
+  "segnali": "tendenza caso",
+  "punteggio": 0.17841071851490203,
+  "investito": 1.969999951836,
+  "entrata": 64.498,
+  "stop": 64.12621428571428,
+  "obiettivo": 64.99371428571429
+ }
+}
