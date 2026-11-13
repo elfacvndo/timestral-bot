@@ -1,14 +1,4 @@
 {
- "QQQ": {
-  "apertura": "2026-11-13 16:45",
-  "strategia": "slancio",
-  "segnali": "slancio caso",
-  "punteggio": -0.07818646671026606,
-  "investito": 1.9699995873579998,
-  "entrata": 674.194,
-  "stop": 669.7191785714285,
-  "obiettivo": 680.1604285714286
- },
  "XLE": {
   "apertura": "2026-11-13 17:30",
   "strategia": "timestral",

@@ -23,3 +23,4 @@ apertura,chiusura,mercato,strategia,segnali,punteggio,investito,entrata,uscita,m
 2026-11-13 15:30,2026-11-13 16:30,IWM,caso,rimbalzo caso,0.1587,1.97,275.774,276.484,tempo,0.2575,0.01,0.2475,0.0049
 2026-11-13 15:30,2026-11-13 16:30,XLE,caso,tendenza slancio caso,0.0803,1.97,64.598,64.442,tempo,-0.2415,0.01,-0.2515,-0.005
 2026-11-13 16:30,2026-11-13 17:30,XLE,caso,tendenza caso,0.1784,1.97,64.498,64.512,tempo,0.0217,0.01,0.0117,0.0002
+2026-11-13 16:45,2026-11-13 17:45,QQQ,slancio,slancio caso,-0.0782,1.97,674.194,677.346,tempo,0.4675,0.01,0.4575,0.009
