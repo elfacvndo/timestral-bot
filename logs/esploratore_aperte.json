@@ -8,5 +8,15 @@
   "entrata": 64.608,
   "stop": 64.36425000000001,
   "obiettivo": 64.933
+ },
+ "DIA": {
+  "apertura": "2026-11-13 19:00",
+  "strategia": "slancio",
+  "segnali": "slancio timestral caso",
+  "punteggio": 0.11678492691039657,
+  "investito": 1.969999700578,
+  "entrata": 522.314,
+  "stop": 521.3663214285714,
+  "obiettivo": 523.5775714285714
  }
 }
