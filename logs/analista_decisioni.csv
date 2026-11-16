@@ -1,2 +1,3 @@
 ora,modello,prezzo,azione,fiducia,stop,obiettivo,perche,esito
 2026-11-16 13:30,opus,70.85855,errore,,,,claude: Failed to authenticate. API Error: 401 OAuth access token is invalid.,modello non disponibile
+2026-11-16 13:45,claude-opus-5-5,70.9505,aspetta,70,0,0,"Il trend giornaliero è fortemente ribassista: da 103 a 71 in tre settimane. Il prezzo si muove lateralmente tra 70 e 72.5 senza un segnale chiaro di inversione, con volumi bassi e una falsa rottura a 72.5 subito respinta. Alle 17:00 parla Warsh della Fed e può arrivare volatilità: conviene aspettare una rottura confermata sopra 72.5 o una tenuta solida dei minimi.",aspetta
