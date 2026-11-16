@@ -1,0 +1,2 @@
+ora,modello,prezzo,azione,fiducia,stop,obiettivo,perche,esito
+2026-11-16 13:30,opus,70.85855,errore,,,,claude: Failed to authenticate. API Error: 401 OAuth access token is invalid.,modello non disponibile
