@@ -61,6 +61,10 @@ MARKETS = {  # simbolo: (fondo di Borsa?, costi stimati andata e ritorno in %)
     "SLV": (True, 0.1),   # argento
     "XLE": (True, 0.1),   # energia
     "EFA": (True, 0.1),   # Borse dei Paesi sviluppati fuori dagli USA
+    # fondi inversi (dal 2026-11-16): salgono quando il loro mercato scende, così comprando si punta al ribasso
+    "SH": (True, 0.1),    # contro l'S&P 500 (SPY)
+    "PSQ": (True, 0.1),   # contro il Nasdaq (QQQ)
+    "BITI": (True, 0.1),  # contro il Bitcoin; a Borsa aperta, come gli altri fondi
 }
 MODEL = os.environ.get("MODELLO", "opus")    # alias di Claude Code: sempre l'Opus più recente
 CLAUDE = os.environ.get("CLAUDE", "claude")  # il programma Claude Code
@@ -79,7 +83,8 @@ DFIELDS = ["ora", "simbolo", "modello", "prezzo", "azione", "fiducia", "stop", "
 NEWS = {"t": None, "v": []}
 SYSTEM = f"""Sei un analista di trading. Ogni 15 minuti ricevi i dati di alcuni mercati e decidi per ciascuno.
 Crypto: 24 ore su 24. Fondi di Borsa USA: arrivano solo a Borsa aperta, e le loro operazioni il bot le chiude da solo 15
-minuti prima della chiusura. Puoi solo comprare e poi vendere (niente vendite allo scoperto). Ogni mercato ha i suoi
+minuti prima della chiusura. Puoi solo comprare e poi vendere (niente vendite allo scoperto). Per puntare al ribasso
+compra un fondo inverso: SH sale quando SPY scende, PSQ quando QQQ scende, BITI quando il Bitcoin scende. Ogni mercato ha i suoi
 costi andata e ritorno, scritti nei dati: un'operazione ha senso solo se il movimento atteso è ben più grande. Lo stop di
 un acquisto va fra {MIN_STOP:.1%} e {MAX_STOP:.0%} sotto il prezzo. Non decidi quanto investire: lo calcola il risk manager.
 Rispondi SOLO con un oggetto JSON con una chiave per ogni mercato ricevuto, scritta come nei dati:
@@ -495,7 +500,7 @@ def prova():
     assert size(100, -1.5, 0.02, minimum=1) == 6.25                     # ...non di un fondo
     assert size(100, -2, 0.01) == 0 and size(100, -5, 0.01) == 0         # budget finito: kill switch
     assert size(100, +3, 0.02) == 20                                    # guadagnare non alza il rischio
-    # Gli stop delle operazioni aperte contano come già persi: 12 mercati non possono perdere più del budget insieme.
+    # Gli stop delle operazioni aperte contano come già persi: 15 mercati non possono perdere più del budget insieme.
     assert risk_open({"A": t}) == 20 * (1 - 97 / 99)
     assert round(size(100, 0, 0.02, open_risk=1.9, minimum=1), 9) == 5            # resta 0,10 $ di budget / 2%
     assert size(100, 0, 0.02, open_risk=2.5, minimum=1) == 0             # budget già tutto negli stop
