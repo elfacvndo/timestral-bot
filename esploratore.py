@@ -46,7 +46,7 @@ Il bot impara anche DOVE operare: ogni quarto d'ora ogni mercato libero fa la su
 più alto (al massimo 2 operazioni insieme). Un mercato dove tutto perde pesca numeri bassi e viene scelto sempre meno.
 Memoria: per ogni mercato e strategia contano solo le ultime 200 operazioni, così se il mercato cambia il bot se ne
 accorge (le vecchie escono dal conto) invece di trascinarsi anni di storia. SOL/USD tolto il 2026-11-13: con 0,6% di costi contro
-~0,3% di movimento in un'ora perde per costruzione (revisione del 2026-11-12, punto B); una SOL rimasta si vende all'avvio.
+~0,3% di movimento in un'ora perde per costruzione (revisione del 2026-11-12, punto B); dal 2026-11-16 SOL è dell'analista AI.
 Ogni operazione investe il 2% del conto; al massimo due insieme (4%). Kill switch: se nel giorno (UTC) l'esploratore
 ha perso più dell'1% del conto, niente operazioni nuove fino al giorno dopo. Solo acquisti.
 Il punteggio è "netto": risultato dai prezzi eseguiti meno i costi stimati (0,01% sulle azioni), così impara anche
@@ -80,7 +80,7 @@ MARKETS = {  # simbolo: (azione?, costi stimati andata e ritorno in %, oscillazi
     "XLE": (True, 0.01, 0.3),  # energia
     "EFA": (True, 0.01, 0.3),  # Borse dei Paesi sviluppati fuori dagli USA
 }
-RETIRED = ["SOL/USD"]  # mercati tolti: se all'avvio c'è ancora una posizione, si chiude
+RETIRED = []  # mercati tolti: se all'avvio c'è ancora una posizione, si chiude (SOL/USD adesso è dell'analista AI)
 ARMS = ["tendenza", "rimbalzo", "rottura", "slancio", "timestral", "caso"]
 SIZE, MAX_DAILY_LOSS, MAX_OPEN = 0.02, 0.01, 2  # al massimo 2 operazioni insieme (4% del conto)
 RECENT = 200       # memoria: per ogni mercato e strategia contano le ultime 200 operazioni (il mercato cambia)
