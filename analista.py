@@ -8,7 +8,8 @@ tutti i mercati e ha preso il posto degli altri bot (DIARIO.md, "Analista AI").
 
 In parole semplici, ogni 15 minuti:
 1. il bot manda al modello, in UNA sola domanda, le candele chiuse di ogni mercato su quattro scale (15 minuti, 1 ora,
-   4 ore, 1 giorno), le operazioni aperte, gli ultimi tre risultati di ogni mercato e le notizie importanti in arrivo;
+   4 ore, 1 giorno), le operazioni aperte, gli ultimi tre risultati di ogni mercato, gli annunci economici importanti
+   in arrivo e i titoli delle notizie delle ultime 2 ore sui suoi mercati (servizio notizie di Alpaca, gratis);
 2. il modello risponde come un analista, mercato per mercato: compra, vendi, aspetta o sposta lo stop, quanto è sicuro e
    perché, in parole;
 3. il bot controlla ogni risposta e decide QUANTO: l'AI propone l'operazione e lo stop, ma la misura la calcola il bot dal
@@ -69,6 +70,7 @@ MIN_STOP, MAX_STOP = 0.005, 0.04          # stop fra 0,5% e 4% sotto il prezzo
 STOCK_MIN = 1                             # minimo per ordine di un fondo (frazioni comprese); crypto: bot.CRYPTO_MIN
 FRAMES = {"15Min": "15min", "1Hour": "1h", "4Hour": "4h", "1Day": "1D"}
 CAL_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
+NEWS_URL, NEWS_HOURS = "https://data.alpaca.markets/v1beta1/news", 2
 MINUTES = int(os.environ.get("MINUTI", 330))
 OPS, DEC, OPEN = bot.LOGS / "analista.csv", bot.LOGS / "analista_decisioni.csv", bot.LOGS / "analista_aperta.json"
 FIELDS = ["apertura", "chiusura", "simbolo", "modello", "investito", "entrata", "uscita", "motivo", "perche", "lordo_pct",
@@ -84,7 +86,9 @@ Rispondi SOLO con un oggetto JSON con una chiave per ogni mercato ricevuto, scri
 {{"BTC/USD": {{"azione": "compra" | "vendi" | "aspetta" | "sposta_stop", "fiducia": 0-100, "stop": prezzo,
 "obiettivo": prezzo, "perche": "il motivo in due o tre frasi, in italiano"}}, ...}}
 Senza operazione aperta: "compra" o "aspetta". Con un'operazione aperta: "aspetta" (tieni), "vendi" (chiudi) o
-"sposta_stop" (nuovo stop e obiettivo; lo stop può solo salire)."""
+"sposta_stop" (nuovo stop e obiettivo; lo stop può solo salire).
+Ricevi anche i titoli delle notizie recenti: usali come contesto, non come segnale da soli (un titolo può essere già nei
+prezzi, o non contare)."""
 
 
 def plain(sym):
@@ -95,7 +99,7 @@ def table(df):
     return "\n".join(f"{t:%m-%d %H:%M},{r.o:.3f},{r.h:.3f},{r.l:.3f},{r.c:.3f},{r.v:.0f}" for t, r in df.iterrows())
 
 
-def prompt(data, op, done, events, now):
+def prompt(data, op, done, events, now, heads=()):
     """Il messaggio per il modello: tutti i mercati in una domanda, niente di più. data = {simbolo: (candele, prezzo)}."""
     s = [f"Ora: {now:%Y-%m-%d %H:%M} UTC."]
     for sym, (frames, P) in data.items():
@@ -115,6 +119,8 @@ def prompt(data, op, done, events, now):
         s.append("\nUltimi risultati: " + ("; ".join(f"{r['chiusura']} {float(r['netto_pct']):+.2f}% ({r['motivo']})"
                                                      for r in last) or "nessuno"))
     s.append("\n\nNotizie importanti (ora UTC): " + ("; ".join(events) or "nessuna nelle prossime 24 ore"))
+    s.append(f"\n\nTitoli delle notizie delle ultime {NEWS_HOURS} ore (ora UTC, mercati collegati):\n"
+             + ("\n".join(heads) or "nessuno"))
     return "\n".join(s)
 
 
@@ -235,6 +241,30 @@ def news(now):
     return out
 
 
+def pick(items, syms):
+    """I titoli che parlano dei nostri mercati, dal più vecchio, con i mercati collegati."""
+    names = {plain(s): s for s in syms}
+    out = []
+    for a in sorted(items, key=lambda a: a["created_at"]):
+        mine = [names[x] for x in a.get("symbols", []) if x in names]
+        if mine:
+            out.append(f"{pd.Timestamp(a['created_at']):%H:%M} [{', '.join(mine)}] {a['headline']}")
+    return out
+
+
+def headlines(syms, now):
+    """I titoli delle ultime NEWS_HOURS ore sui mercati di questo giro (servizio notizie di Alpaca, incluso nel conto
+    gratuito). Se non risponde, si va avanti senza."""
+    p = {"symbols": ",".join(plain(s) for s in syms), "start": f"{now - timedelta(hours=NEWS_HOURS):%Y-%m-%dT%H:%M:%SZ}",
+         "limit": 50, "sort": "desc"}
+    try:
+        page = bot.get_json(urllib.request.Request(f"{NEWS_URL}?{urllib.parse.urlencode(p)}", headers=bot.keys()), tries=1)
+        return pick((page or {}).get("news", []), syms)
+    except Exception as e:
+        print(f"notizie non disponibili: {e}", flush=True)
+        return []
+
+
 def ask(text):
     """Il modello col tuo abbonamento Claude: `claude -p` (Claude Code) senza strumenti, solo testo. Nel cloud si
     autentica col token CLAUDE_CODE_OAUTH_TOKEN (fatto con `claude setup-token`): nessuna chiave a pagamento.
@@ -333,7 +363,7 @@ def decide(now, op, equity, cash, clock, skip=()):
     done = rows(OPS)
     today = sum(float(r["netto_usd"]) for r in done if r["chiusura"].startswith(f"{now:%Y-%m-%d}"))
     try:
-        resp, model, err = *ask(prompt(data, op, done, news(now), now)), ""
+        resp, model, err = *ask(prompt(data, op, done, news(now), now, headlines(data, now))), ""
     except Exception as e:  # modello giù, limiti dell'abbonamento finiti, risposta non JSON: si aspetta
         resp, model, err = {}, MODEL, str(e)[:300]
     news_push = []
@@ -488,6 +518,13 @@ def prova():
                           {"title": "Vecchia", "country": "USD", "impact": "High", "date": "2026-11-15T09:00:00-05:00"},
                           {"title": "Minore", "country": "USD", "impact": "Low", "date": "2026-11-16T09:00:00-05:00"}])
     assert news(now) == ["11-16 19:00 FOMC"]
+    # Titoli: solo quelli dei nostri mercati (BTCUSD → BTC/USD), dal più vecchio; finiscono nella domanda.
+    items = [{"created_at": "2026-11-16T15:04:35Z", "symbols": ["BTCUSD", "COIN", "SPY"], "headline": "Bitcoin giù"},
+             {"created_at": "2026-11-16T14:46:33Z", "symbols": ["NVDA"], "headline": "Chip"},
+             {"created_at": "2026-11-16T14:39:41Z", "symbols": ["VGK", "SPY"], "headline": "Ucraina"}]
+    heads = pick(items, ["BTC/USD", "SPY"])
+    assert heads == ["14:39 [SPY] Ucraina", "15:04 [BTC/USD, SPY] Bitcoin giù"], heads
+    assert "15:04 [BTC/USD, SPY] Bitcoin giù" in prompt({}, {}, [], [], now, heads) and "Titoli" in prompt({}, {}, [], [], now)
     # Fondi: si entra da 15 minuti dopo l'apertura a 30 prima della chiusura (ore di New York).
     clk = {"is_open": True, "next_close": "2026-11-16T16:00:00-05:00"}
     assert stock_window(clk, pd.Timestamp("2026-11-16 15:00", tz="UTC"))           # 10:00 a New York
