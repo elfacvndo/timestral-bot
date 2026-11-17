@@ -1,4 +1,4 @@
-# Analista AI sempre acceso: un modello linguistico decide ogni 15 minuti su 15 mercati (crypto sempre, fondi a Borsa aperta),
+# Analista AI sempre acceso: un modello linguistico decide ogni 15 minuti (ogni ora a Borsa chiusa) su 15 mercati (crypto sempre, fondi a Borsa aperta),
 # una sola domanda per tutti; il bot misura il rischio (vedi analista.py). Dal 2026-11-16 è l'unico bot acceso.
 # Un giro dura ~5 ore e mezza (GitHub ferma un lavoro dopo 6), poi si rilancia da solo; le operazioni aperte le
 # riprende il giro dopo (logs/analista_aperta.json). Il cron ogni ora è la riserva se il rilancio si perde.

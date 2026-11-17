@@ -6,10 +6,12 @@
 (GitHub Actions). Nato il 2026-11-16 su SOL/USD seguendo alla lettera il metodo di un video; dallo stesso giorno opera su
 tutti i mercati e ha preso il posto degli altri bot (DIARIO.md, "Analista AI").
 
-In parole semplici, ogni 15 minuti:
+In parole semplici, ogni 15 minuti a Borsa USA aperta, ogni ora quando è chiusa (dal 2026-11-17, ci sono solo le crypto:
+così si consumano meno limiti dell'abbonamento; stop e obiettivo li controlla comunque il bot ogni minuto):
 1. il bot manda al modello, in UNA sola domanda, le candele chiuse di ogni mercato su quattro scale (15 minuti, 1 ora,
    4 ore, 1 giorno), le operazioni aperte, gli ultimi tre risultati di ogni mercato, gli annunci economici importanti
-   in arrivo e i titoli delle notizie delle ultime 2 ore sui suoi mercati (servizio notizie di Alpaca, gratis);
+   in arrivo, i titoli delle notizie delle ultime 2 ore sui suoi mercati (servizio notizie di Alpaca, gratis) e quello
+   che lui stesso ha detto al giro prima su ogni mercato (così si ricorda i livelli che aspettava);
 2. il modello risponde come un analista, mercato per mercato: compra, vendi, aspetta o sposta lo stop, quanto è sicuro e
    perché, in parole;
 3. il bot controlla ogni risposta e decide QUANTO: l'AI propone l'operazione e lo stop, ma la misura la calcola il bot dal
@@ -81,7 +83,8 @@ FIELDS = ["apertura", "chiusura", "simbolo", "modello", "investito", "entrata", 
           "netto_pct", "netto_usd"]
 DFIELDS = ["ora", "simbolo", "modello", "prezzo", "azione", "fiducia", "stop", "obiettivo", "perche", "esito"]
 NEWS = {"t": None, "v": []}
-SYSTEM = f"""Sei un analista di trading. Ogni 15 minuti ricevi i dati di alcuni mercati e decidi per ciascuno.
+SYSTEM = f"""Sei un analista di trading. Ogni 15 minuti (ogni ora quando la Borsa USA è chiusa) ricevi i dati di alcuni
+mercati e decidi per ciascuno.
 Crypto: 24 ore su 24. Fondi di Borsa USA: arrivano solo a Borsa aperta, e le loro operazioni il bot le chiude da solo 15
 minuti prima della chiusura. Puoi solo comprare e poi vendere (niente vendite allo scoperto). Per puntare al ribasso
 compra un fondo inverso: SH sale quando SPY scende, PSQ quando QQQ scende, BITI quando il Bitcoin scende. Ogni mercato ha i suoi
@@ -93,7 +96,16 @@ Rispondi SOLO con un oggetto JSON con una chiave per ogni mercato ricevuto, scri
 Senza operazione aperta: "compra" o "aspetta". Con un'operazione aperta: "aspetta" (tieni), "vendi" (chiudi) o
 "sposta_stop" (nuovo stop e obiettivo; lo stop può solo salire).
 Ricevi anche i titoli delle notizie recenti: usali come contesto, non come segnale da soli (un titolo può essere già nei
-prezzi, o non contare)."""
+prezzi, o non contare).
+Lo scopo è fare operazioni e imparare da come vanno: aspettare non è gratis, perché senza operazioni non si impara niente.
+Il rischio è piccolo e già fissato: il risk manager sceglie l'importo in modo che arrivare allo stop costi solo lo
+{RISK:.1%} del conto, e c'è un tetto alla perdita del giorno. Non serve la certezza: compra quando hai un motivo concreto e
+l'obiettivo, al netto dei costi, è almeno una volta e mezza la distanza dello stop, anche con fiducia media. In un mercato
+laterale si può comprare vicino al supporto, con lo stop sotto. Se il quadro è ribassista non limitarti ad aspettare:
+a Borsa aperta compra il fondo inverso. Un annuncio economico in arrivo non è da solo un motivo per aspettare: entra con lo
+stop, oppure aspetta solo se mancano meno di 30 minuti. Orizzonte: crypto da qualche ora a qualche giorno; fondi entro la
+giornata. Ricevi anche quello che hai detto al giro prima su ogni mercato: se il livello che aspettavi è arrivato, agisci.
+"fiducia" è quanto credi nell'operazione che proponi (per "aspetta", quanto credi che comprare adesso sia sbagliato)."""
 
 
 def plain(sym):
@@ -104,8 +116,9 @@ def table(df):
     return "\n".join(f"{t:%m-%d %H:%M},{r.o:.3f},{r.h:.3f},{r.l:.3f},{r.c:.3f},{r.v:.0f}" for t, r in df.iterrows())
 
 
-def prompt(data, op, done, events, now, heads=()):
-    """Il messaggio per il modello: tutti i mercati in una domanda, niente di più. data = {simbolo: (candele, prezzo)}."""
+def prompt(data, op, done, events, now, heads=(), prev=None):
+    """Il messaggio per il modello: tutti i mercati in una domanda, niente di più. data = {simbolo: (candele, prezzo)};
+    prev = {simbolo: la sua ultima decisione dal registro}."""
     s = [f"Ora: {now:%Y-%m-%d %H:%M} UTC."]
     for sym, (frames, P) in data.items():
         stock, cost = MARKETS[sym]
@@ -121,6 +134,9 @@ def prompt(data, op, done, events, now, heads=()):
         else:
             s.append("\nNessuna operazione aperta.")
         last = [r for r in done if r["simbolo"] == sym][-3:]
+        p = (prev or {}).get(sym)
+        if p:
+            s.append(f"\nAl giro prima ({p['ora']}) avevi detto: {p['azione']}, fiducia {p['fiducia']}. {p['perche']}")
         s.append("\nUltimi risultati: " + ("; ".join(f"{r['chiusura']} {float(r['netto_pct']):+.2f}% ({r['motivo']})"
                                                      for r in last) or "nessuno"))
     s.append("\n\nNotizie importanti (ora UTC): " + ("; ".join(events) or "nessuna nelle prossime 24 ore"))
@@ -367,8 +383,9 @@ def decide(now, op, equity, cash, clock, skip=()):
         return
     done = rows(OPS)
     today = sum(float(r["netto_usd"]) for r in done if r["chiusura"].startswith(f"{now:%Y-%m-%d}"))
+    prev = {r["simbolo"]: r for r in rows(DEC) if r["azione"] != "errore"}  # l'ultima di ogni mercato
     try:
-        resp, model, err = *ask(prompt(data, op, done, news(now), now, headlines(data, now))), ""
+        resp, model, err = *ask(prompt(data, op, done, news(now), now, headlines(data, now), prev)), ""
     except Exception as e:  # modello giù, limiti dell'abbonamento finiti, risposta non JSON: si aspetta
         resp, model, err = {}, MODEL, str(e)[:300]
     news_push = []
@@ -460,7 +477,7 @@ def main():
                     close(sym, op[sym], why, now, op)
             except Exception as e:  # rete, dati, broker: si salta questo mercato e si riprova al prossimo minuto
                 print(f"ERRORE {sym}: {e}", flush=True)
-        if now.minute % 15 == 0:
+        if now.minute % (15 if clock["is_open"] else 60) == 0:  # Borsa chiusa: solo crypto, una domanda all'ora
             try:
                 acct = bot.api("GET", "/v2/account")
                 decide(now, op, float(acct["equity"]), float(acct["non_marginable_buying_power"]), clock, fresh)
@@ -515,6 +532,9 @@ def prova():
     sol, spy = s.split("=== SPY")
     assert all(f"Candele {tf}" in sol and f"Candele {tf}" in spy for tf in FRAMES) and "11-16 08:15,2.000,2.500,1.500,2.200,20" in s
     assert "aperta da 30 minuti" in sol and "+1.01%" in sol and "-0.80% (stop)" in sol and "+0.40%" not in sol
+    prev = {"SOL/USD": {"ora": "2026-11-16 10:15", "azione": "aspetta", "fiducia": "60", "perche": "compro sopra 73,3"}}
+    assert "avevi detto: aspetta, fiducia 60. compro sopra 73,3" in prompt({"SOL/USD": ({}, P)}, {}, [], [], pd.Timestamp(
+        "2026-11-16 10:30", tz="UTC"), prev=prev) and "avevi detto" not in spy
     assert "costi ~0.1%" in spy and "Nessuna operazione aperta" in spy and "+0.40% (obiettivo)" in spy and "FOMC" in spy
     # Notizie: solo alto impatto sul dollaro, dall'ora scorsa alle prossime 24 ore.
     now = pd.Timestamp("2026-11-16 12:00", tz="UTC")
