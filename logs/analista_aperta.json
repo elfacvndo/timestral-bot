@@ -25,5 +25,14 @@
   "stop": 27.56,
   "obiettivo": 28.0,
   "perche": "QQQ ha aperto rompendo il minimo di ieri e il trend giornaliero e orario \u00e8 ribassista, quindi compro il fondo inverso. Lo stop a 27,56 (-0,5%) sta sotto i minimi di stamattina. L'obiettivo \u00e8 il massimo settimanale a 28,0 (+1,06%), cio\u00e8 circa 1,9 volte il rischio al netto dei costi."
+ },
+ "ETH/USD": {
+  "apertura": "2026-11-17 14:57",
+  "modello": "claude-opus-5-5",
+  "investito": 19.46584175634,
+  "entrata": 1808.38,
+  "stop": 1782.0,
+  "obiettivo": 1868.0,
+  "perche": "Il livello che aspettavo, 1.810, \u00e8 arrivato. Il rimbalzo dal minimo di 1.784,6 tiene e l'RSI dei 15 minuti \u00e8 costruttivo. Metto lo stop sotto il minimo del giorno e punto alla resistenza delle 24 ore a 1.864-1.868: al netto dei costi il guadagno possibile \u00e8 circa 1,7 volte il rischio. Va notato che la scommessa \u00e8 correlata con BTC e SOL."
  }
 }
