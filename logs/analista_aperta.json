@@ -25,5 +25,14 @@
   "stop": 71.95,
   "obiettivo": 75.6,
   "perche": "Lo stop precedente era stato stretto troppo vicino all'entrata ed \u00e8 scattato per rumore. La struttura per\u00f2 resta rialzista: minimi crescenti da 72,0, chiusure sopra 73,5 e volumi in aumento. Rientro con lo stop sotto il supporto di 72,0, a circa -1,7%. L'obiettivo 75,6 vale circa +2,7% netto, cio\u00e8 circa 1,5 volte il rischio."
+ },
+ "XLE": {
+  "apertura": "2026-11-17 15:15",
+  "modello": "claude-opus-5-5",
+  "investito": 19.729999987536,
+  "entrata": 63.948,
+  "stop": 63.45,
+  "obiettivo": 65.0,
+  "perche": "XLE \u00e8 il settore pi\u00f9 forte della settimana, con un recupero da 60,4 e i minimi crescenti. \u00c8 tornato a 64,0, vicino al livello di ingresso che aspettavo. Lo stop sotto il minimo di ieri a 63,5 vale circa -0,9%; l'obiettivo a 65 vale circa +1,4% netto, cio\u00e8 circa 1,5 volte il rischio."
  }
 }
