@@ -1,1 +1,20 @@
-{}
+{
+ "BTC/USD": {
+  "apertura": "2026-11-17 21:31",
+  "modello": "claude-opus-5-5",
+  "investito": 14.767616067757,
+  "entrata": 64527.701,
+  "stop": 63880.0,
+  "obiettivo": 65950.0,
+  "perche": "\u00c8 arrivata la rottura di 64.450 che aspettavo. La candela delle 21:15 ha chiuso vicino al massimo e l'RSI a 4 ore a 15 lascia spazio a un rimbalzo verso la zona 65.000-66.000. Lo stop sta sotto la base delle ultime ore, a circa un movimento orario medio. Con l'obiettivo a 65.950 il guadagno netto \u00e8 circa 1,6 volte il rischio, anche se il volume resta basso."
+ },
+ "ETH/USD": {
+  "apertura": "2026-11-17 21:31",
+  "modello": "claude-opus-5-5",
+  "investito": 11.810431686900001,
+  "entrata": 1813.9,
+  "stop": 1790.0,
+  "obiettivo": 1858.0,
+  "perche": "Ha toccato 1.815, la rottura vera che aspettavo. I minimi orari salgono da 1.765 a 1.786 e il movimento \u00e8 coordinato con BTC e SOL. Lo stop sotto 1.790 \u00e8 oltre il rumore orario. L'obiettivo vicino al massimo giornaliero di 1.864 d\u00e0 un rapporto netto di circa 1,5; il trend a 4 ore resta ribassista, quindi la fiducia \u00e8 media."
+ }
+}
