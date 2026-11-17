@@ -13,8 +13,17 @@
   "modello": "claude-opus-5-5",
   "investito": 19.44117642368,
   "entrata": 73.37,
-  "stop": 72.95,
+  "stop": 73.25,
   "obiettivo": 75.4,
   "perche": "SOL \u00e8 il crypto pi\u00f9 forte. Ha difeso pi\u00f9 volte 72,0 e ora rompe al rialzo i massimi degli ultimi giorni (73,16-73,30), chiudendo sul massimo. Lo stop va sotto il minimo delle 11:15, a circa l'1,25%. L'obiettivo 75,4 \u00e8 sotto la zona 75,9-76,1 del 14 novembre e vale circa 1,5 volte il rischio al netto dei costi."
+ },
+ "PSQ": {
+  "apertura": "2026-11-17 14:45",
+  "modello": "claude-opus-5-5",
+  "investito": 19.869999982112002,
+  "entrata": 27.728,
+  "stop": 27.56,
+  "obiettivo": 28.0,
+  "perche": "QQQ ha aperto rompendo il minimo di ieri e il trend giornaliero e orario \u00e8 ribassista, quindi compro il fondo inverso. Lo stop a 27,56 (-0,5%) sta sotto i minimi di stamattina. L'obiettivo \u00e8 il massimo settimanale a 28,0 (+1,06%), cio\u00e8 circa 1,9 volte il rischio al netto dei costi."
  }
 }
