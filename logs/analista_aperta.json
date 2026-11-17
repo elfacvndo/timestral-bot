@@ -16,14 +16,5 @@
   "stop": 79.3,
   "obiettivo": 80.4,
   "perche": "TLT ha toccato 79,76 e rompe il massimo del range di pi\u00f9 giorni mentre le Borse vendono, quindi c'\u00e8 una fuga verso i titoli di Stato. Lo stop a 79,30 sta sotto la base della salita di oggi ed \u00e8 oltre il rumore. L'obiettivo di 80,4 d\u00e0 un rapporto netto di circa 1,5, anche se l'RSI a 4 ore alto chiede prudenza."
- },
- "QQQ": {
-  "apertura": "2026-11-17 17:21",
-  "modello": "claude-opus-5-5",
-  "investito": 19.589999988640002,
-  "entrata": 656.672,
-  "stop": 651.5,
-  "obiettivo": 666.0,
-  "perche": "L'allarme a 657 \u00e8 scattato: QQQ ha tenuto il supporto di 647, gi\u00e0 difeso il 6 novembre, e risale con forza da un ipervenduto estremo (RSI orario a 5). Lo stop sta sotto la base del rimbalzo (650-650,6), oltre il movimento medio. L'obiettivo \u00e8 l'area 663-666, dove si trovava prima della rottura, con un rapporto fra guadagno netto e rischio di circa 1,5."
  }
 }
