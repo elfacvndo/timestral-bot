@@ -11,12 +11,18 @@ così si consumano meno limiti dell'abbonamento; stop e obiettivo li controlla c
 1. il bot manda al modello, in UNA sola domanda, le candele chiuse di ogni mercato su quattro scale (15 minuti, 1 ora,
    4 ore, 1 giorno), le operazioni aperte, gli ultimi tre risultati di ogni mercato, gli annunci economici importanti
    in arrivo, i titoli delle notizie delle ultime 2 ore sui suoi mercati (servizio notizie di Alpaca, gratis) e quello
-   che lui stesso ha detto al giro prima su ogni mercato (così si ricorda i livelli che aspettava);
+   che lui stesso ha detto al giro prima su ogni mercato (così si ricorda i livelli che aspettava). Dal 2026-11-17 anche
+   i conti già fatti dal bot (RSI, movimento medio, distanza dalla media, massimi e minimi), il prezzo dell'ultimo
+   minuto, i suoi risultati per mercato e il suo quaderno delle lezioni;
 2. il modello risponde come un analista, mercato per mercato: compra, vendi, aspetta o sposta lo stop, quanto è sicuro e
    perché, in parole;
 3. il bot controlla ogni risposta e decide QUANTO: l'AI propone l'operazione e lo stop, ma la misura la calcola il bot dal
    rischio fissato qui sotto. L'AI non tocca mai il rischio.
-Ogni minuto il bot controlla stop e obiettivo da solo. Ogni decisione finisce nel registro col suo perché.
+Ogni minuto il bot controlla stop e obiettivo da solo, anche mentre il modello pensa (la domanda gira in una corsia a
+parte). Ogni decisione finisce nel registro col suo perché.
+Allarmi (dal 2026-11-17): il modello indica fino a due prezzi per mercato; se il prezzo ne tocca uno il bot gli fa subito
+una domanda nuova, senza aspettare il giro dopo. Lezioni: per ogni operazione chiusa il modello scrive una lezione di una
+frase (logs/analista_lezioni.csv) e le rilegge a ogni domanda: è il suo modo di imparare dai propri risultati.
 
 Mercati (MARKETS): crypto 24 ore su 24; fondi di Borsa USA solo a Borsa aperta, e il bot chiude le loro operazioni 15
 minuti prima della chiusura (di notte lo stop non si può controllare). Una operazione al massimo per mercato.
@@ -43,9 +49,11 @@ import os
 import signal
 import subprocess
 import sys
+import threading
 import time
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
 import pandas as pd
@@ -75,16 +83,24 @@ RISK, QUOTA, BUDGET = 0.005, 0.20, 0.02  # rischio a operazione, massimo per ope
 MIN_STOP, MAX_STOP = 0.005, 0.04          # stop fra 0,5% e 4% sotto il prezzo
 STOCK_MIN = 1                             # minimo per ordine di un fondo (frazioni comprese); crypto: bot.CRYPTO_MIN
 FRAMES = {"15Min": "15min", "1Hour": "1h", "4Hour": "4h", "1Day": "1D"}
+FETCH, SEND = 60, 16  # candele scaricate per scala (servono ai conti) e candele mandate al modello
+LATEST = {False: ("https://data.alpaca.markets/v1beta3/crypto/us/latest/bars", {}),  # ultima candela da 1 minuto
+          True: ("https://data.alpaca.markets/v2/stocks/bars/latest", {"feed": "iex"})}
+GAP = 300  # secondi minimi fra due domande quando scatta un allarme (i limiti dell'abbonamento)
 CAL_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
 NEWS_URL, NEWS_HOURS = "https://data.alpaca.markets/v1beta1/news", 2
 MINUTES = int(os.environ.get("MINUTI", 330))
 OPS, DEC, OPEN = bot.LOGS / "analista.csv", bot.LOGS / "analista_decisioni.csv", bot.LOGS / "analista_aperta.json"
+LESSONS = bot.LOGS / "analista_lezioni.csv"
 FIELDS = ["apertura", "chiusura", "simbolo", "modello", "investito", "entrata", "uscita", "motivo", "perche", "lordo_pct",
           "netto_pct", "netto_usd"]
-DFIELDS = ["ora", "simbolo", "modello", "prezzo", "azione", "fiducia", "stop", "obiettivo", "perche", "esito"]
+DFIELDS = ["ora", "simbolo", "modello", "prezzo", "azione", "fiducia", "stop", "obiettivo", "perche", "esito", "allarmi"]
+LFIELDS = ["ora", "simbolo", "chiusura", "lezione"]
+ALERTS = {}              # simbolo: prezzi che fanno scattare subito una domanda (li sceglie il modello)
+LOCK = threading.Lock()  # operazioni aperte, registri e ordini: la sorveglianza e la domanda non si pestano i piedi
 NEWS = {"t": None, "v": []}
-SYSTEM = f"""Sei un analista di trading. Ogni 15 minuti (ogni ora quando la Borsa USA è chiusa) ricevi i dati di alcuni
-mercati e decidi per ciascuno.
+SYSTEM = f"""Sei un analista di trading. Ogni 15 minuti (ogni ora quando la Borsa USA è chiusa, e subito quando scatta un tuo
+allarme) ricevi i dati di alcuni mercati e decidi per ciascuno.
 Crypto: 24 ore su 24. Fondi di Borsa USA: arrivano solo a Borsa aperta, e le loro operazioni il bot le chiude da solo 15
 minuti prima della chiusura. Puoi solo comprare e poi vendere (niente vendite allo scoperto). Per puntare al ribasso
 compra un fondo inverso: SH sale quando SPY scende, PSQ quando QQQ scende, BITI quando il Bitcoin scende. Ogni mercato ha i suoi
@@ -92,11 +108,20 @@ costi andata e ritorno, scritti nei dati: un'operazione ha senso solo se il movi
 un acquisto va fra {MIN_STOP:.1%} e {MAX_STOP:.0%} sotto il prezzo. Non decidi quanto investire: lo calcola il risk manager.
 Rispondi SOLO con un oggetto JSON con una chiave per ogni mercato ricevuto, scritta come nei dati:
 {{"BTC/USD": {{"azione": "compra" | "vendi" | "aspetta" | "sposta_stop", "fiducia": 0-100, "stop": prezzo,
-"obiettivo": prezzo, "perche": "il motivo in due o tre frasi, in italiano"}}, ...}}
+"obiettivo": prezzo, "allarmi": [prezzo, prezzo], "perche": "il motivo in due o tre frasi, in italiano"}}, ...,
+"_lezioni": [{{"simbolo": "BTC/USD", "chiusura": "AAAA-MM-GG HH:MM", "lezione": "una frase"}}]}}
 Senza operazione aperta: "compra" o "aspetta". Con un'operazione aperta: "aspetta" (tieni), "vendi" (chiudi) o
 "sposta_stop" (nuovo stop e obiettivo; lo stop può solo salire).
 Ricevi anche i titoli delle notizie recenti: usali come contesto, non come segnale da soli (un titolo può essere già nei
 prezzi, o non contare).
+Per ogni mercato il bot ti dà i conti già fatti (RSI, movimento medio di una candela, distanza dalla media di 20 candele,
+massimi e minimi): usa quelli invece di rifarli sulle candele. Il movimento medio dice quanto si muove il prezzo di
+solito: uno stop più vicino di così scatta per rumore.
+"allarmi": fino a due prezzi per mercato (lista vuota se non servono). Il bot li guarda ogni minuto e, se il prezzo ne
+tocca uno, ti fa subito una domanda nuova invece di aspettare il giro dopo: mettili dove agiresti o cambieresti idea
+(la rottura che aspetti, il supporto che non deve cedere).
+"_lezioni": per ogni operazione chiusa che ti viene data da commentare, una lezione di una frase su cosa ha funzionato o
+no, utile alle prossime. Le tue lezioni di prima le ricevi a ogni domanda: tienine conto, sono la tua esperienza.
 Lo scopo è fare operazioni e imparare da come vanno: aspettare non è gratis, perché senza operazioni non si impara niente.
 Il rischio è piccolo e già fissato: il risk manager sceglie l'importo in modo che arrivare allo stop costi solo lo
 {RISK:.1%} del conto, e c'è un tetto alla perdita del giorno. Non serve la certezza: compra quando hai un motivo concreto e
@@ -113,19 +138,53 @@ def plain(sym):
 
 
 def table(df):
-    return "\n".join(f"{t:%m-%d %H:%M},{r.o:.3f},{r.h:.3f},{r.l:.3f},{r.c:.3f},{r.v:.0f}" for t, r in df.iterrows())
+    return "\n".join(f"{t:%m-%d %H:%M},{r.o:.3f},{r.h:.3f},{r.l:.3f},{r.c:.3f},{round(r.v, 3)}" for t, r in df.iterrows())  # volume crypto: frazioni di moneta
 
 
-def prompt(data, op, done, events, now, heads=(), prev=None):
+def numbers(df):
+    """I conti che il modello farebbe a occhio: RSI a 14 candele, movimento medio di una candela (ATR a 14) in % del
+    prezzo, distanza del prezzo dalla media delle ultime 20 candele in %. NaN se le candele sono troppo poche."""
+    c = df.c
+    d = c.diff()
+    rsi = 100 - 100 / (1 + d.clip(lower=0).rolling(14).mean() / (-d.clip(upper=0)).rolling(14).mean())
+    tr = pd.concat([df.h - df.l, (df.h - c.shift()).abs(), (df.l - c.shift()).abs()], axis=1).max(axis=1)
+    return rsi.iloc[-1], (tr.rolling(14).mean() / c * 100).iloc[-1], ((c / c.rolling(20).mean() - 1) * 100).iloc[-1]
+
+
+def fmt(x, f, unit=""):
+    return f"{x:{f}}{unit}" if pd.notna(x) else "n.d."
+
+
+def stats(done, sym):
+    """I risultati del modello su un mercato, tutti insieme."""
+    r = [x for x in done if x["simbolo"] == sym]
+    if not r:
+        return "Finora nessuna operazione chiusa."
+    pct = [float(x["netto_pct"]) for x in r]
+    return (f"Finora: {len(r)} chiuse, {sum(v > 0 for v in pct)} in guadagno, media {sum(pct) / len(pct):+.2f}%, "
+            f"totale {sum(float(x['netto_usd']) for x in r):+.2f} $.")
+
+
+def prompt(data, op, done, events, now, heads=(), prev=None, lessons=(), why=""):
     """Il messaggio per il modello: tutti i mercati in una domanda, niente di più. data = {simbolo: (candele, prezzo)};
-    prev = {simbolo: la sua ultima decisione dal registro}."""
-    s = [f"Ora: {now:%Y-%m-%d %H:%M} UTC."]
+    prev = {simbolo: la sua ultima decisione dal registro}; lessons = le sue lezioni; why = perché la domanda arriva
+    prima del giro (un allarme)."""
+    s = [f"Ora: {now:%Y-%m-%d %H:%M} UTC."] + ([f"Domanda anticipata: {why}."] if why else [])
     for sym, (frames, P) in data.items():
         stock, cost = MARKETS[sym]
         kind = "fondo di Borsa USA" if stock else "crypto"
-        s.append(f"\n\n=== {sym} ({kind}, costi ~{cost}% andata e ritorno). Prezzo: {P:.3f}")
+        s.append(f"\n\n=== {sym} ({kind}, costi ~{cost}% andata e ritorno). Prezzo (ultimo minuto): {P:.3f}")
+        if frames:
+            s.append("\nConti fatti (RSI 14 | movimento medio di una candela | prezzo rispetto alla media di 20 candele): "
+                     + "; ".join(f"{tf} {fmt(r, '.0f')} | {fmt(a, '.2f', '%')} | {fmt(m, '+.2f', '%')}"
+                                 for tf, (r, a, m) in ((tf, numbers(df)) for tf, df in frames.items())))
+        h1, d1 = frames.get("1Hour"), frames.get("1Day")
+        if h1 is not None and len(h1) and d1 is not None and len(d1):
+            s.append(f"\nMassimo / minimo: ultime 24 candele da 1 ora {h1.h.tail(24).max():.3f} / {h1.l.tail(24).min():.3f}; "
+                     f"ultimi 7 giorni {d1.h.tail(7).max():.3f} / {d1.l.tail(7).min():.3f}.")
         for tf, df in frames.items():
-            s.append(f"\nCandele {tf} chiuse (ora UTC,apertura,massimo,minimo,chiusura,volume):\n{table(df)}")
+            s.append(f"\nCandele {tf} chiuse, le ultime {SEND} (ora UTC,apertura,massimo,minimo,chiusura,volume):\n"
+                     f"{table(df.tail(SEND))}")
         t = op.get(sym)
         if t:
             mins = (now - pd.Timestamp(t["apertura"], tz="UTC")) / timedelta(minutes=1)
@@ -138,11 +197,42 @@ def prompt(data, op, done, events, now, heads=(), prev=None):
         if p:
             s.append(f"\nAl giro prima ({p['ora']}) avevi detto: {p['azione']}, fiducia {p['fiducia']}. {p['perche']}")
         s.append("\nUltimi risultati: " + ("; ".join(f"{r['chiusura']} {float(r['netto_pct']):+.2f}% ({r['motivo']})"
-                                                     for r in last) or "nessuno"))
+                                                     for r in last) or "nessuno") + ". " + stats(done, sym))
     s.append("\n\nNotizie importanti (ora UTC): " + ("; ".join(events) or "nessuna nelle prossime 24 ore"))
     s.append(f"\n\nTitoli delle notizie delle ultime {NEWS_HOURS} ore (ora UTC, mercati collegati):\n"
              + ("\n".join(heads) or "nessuno"))
+    s.append("\n\nLe tue lezioni (le più recenti):" + ("".join(f"\n- [{r['simbolo']}] {r['lezione']}" for r in lessons[-15:])
+                                                      or " nessuna, per ora"))
+    todo = pending(done, lessons)
+    if todo:
+        s.append('\n\nOperazioni chiuse da commentare in "_lezioni":' + "".join(
+            f"\n- {r['simbolo']} chiusura {r['chiusura']}: aperta {r['apertura']} a {r['entrata']}, uscita a {r['uscita']} "
+            f"({r['motivo']}), netto {float(r['netto_pct']):+.2f}%. Il tuo perché d'entrata: {r['perche']}" for r in todo))
     return "\n".join(s)
+
+
+def pending(done, lessons):
+    """Le operazioni chiuse (al massimo le ultime 5) che non hanno ancora la loro lezione."""
+    seen = {(r["simbolo"], r["chiusura"]) for r in lessons}
+    return [r for r in done if (r["simbolo"], r["chiusura"]) not in seen][-5:]
+
+
+def levels(a, P):
+    """Gli allarmi proposti dal modello, controllati: al massimo due prezzi, entro il 10% dal prezzo di adesso."""
+    raw, out = a.get("allarmi"), []
+    for x in raw[:2] if isinstance(raw, list) else []:
+        try:
+            x = float(x)
+        except (TypeError, ValueError):
+            continue
+        if 0.9 * P <= x <= 1.1 * P:
+            out.append(x)
+    return out
+
+
+def ring(px, syms):
+    """Gli allarmi che l'ultimo minuto ha toccato: [(simbolo, prezzo)]. px = {simbolo: (massimo, minimo, chiusura)}."""
+    return [(s, x) for s in syms if s in px for x in ALERTS.get(s, []) if px[s][1] <= x <= px[s][0]]
 
 
 def check(a, P, t, cost, livello=LIVELLO):
@@ -286,6 +376,21 @@ def headlines(syms, now):
         return []
 
 
+def last_prices(syms, now):
+    """L'ultima candela da 1 minuto di ogni mercato, in due richieste in tutto (crypto e fondi): {simbolo: (massimo,
+    minimo, chiusura)}. Una candela più vecchia di 10 minuti si scarta: dati fermi, meglio non decidere su quelli."""
+    out = {}
+    for stock, (url, feed) in LATEST.items():
+        mine = [s for s in syms if MARKETS[s][0] == stock]
+        if mine:
+            q = urllib.parse.urlencode({"symbols": ",".join(mine), **feed})
+            page = bot.get_json(urllib.request.Request(f"{url}?{q}", headers=bot.keys())) or {}
+            for s, b in page.get("bars", {}).items():
+                if now - pd.Timestamp(b["t"]) <= timedelta(minutes=10):
+                    out[s] = (float(b["h"]), float(b["l"]), float(b["c"]))
+    return out
+
+
 def ask(text):
     """Il modello col tuo abbonamento Claude: `claude -p` (Claude Code) senza strumenti, solo testo. Nel cloud si
     autentica col token CLAUDE_CODE_OAUTH_TOKEN (fatto con `claude setup-token`): nessuna chiave a pagamento.
@@ -366,58 +471,86 @@ def stock_window(clock, now):
         and pd.Timestamp(clock["next_close"]) - now > timedelta(minutes=30)
 
 
-def decide(now, op, equity, cash, clock, skip=()):
-    """Il giro dei 15 minuti: dati di tutti i mercati → una domanda al modello → risk manager su ogni risposta →
-    (forse) ordini."""
+def decide(now, op, equity, cash, clock, skip=(), why=""):
+    """Un giro: dati di tutti i mercati (scaricati insieme) → una domanda al modello → risk manager su ogni risposta →
+    (forse) ordini. Gira accanto alla sorveglianza: operazioni, registri e ordini si toccano solo col LOCK, così mentre
+    il modello pensa gli stop si controllano lo stesso."""
     window = stock_window(clock, now)
+    syms = [s for s, (stock, _) in MARKETS.items() if s not in skip and (window or not stock)]
+    if not syms:
+        return
+    with ThreadPoolExecutor(8) as ex:
+        jobs = {(s, tf): ex.submit(candles, s, tf, FETCH, now) for s in syms for tf in FRAMES}
+    try:
+        px = last_prices(syms, now)
+    except Exception as e:  # senza l'ultimo minuto si usa la chiusura dell'ultima candela da 15 minuti
+        px = {}
+        print(f"ERRORE prezzi: {e}", flush=True)
     data = {}
-    for sym, (stock, _) in MARKETS.items():
-        if sym in skip or (stock and not window):
-            continue
+    for sym in syms:
         try:
-            frames = {tf: candles(sym, tf, 24, now) for tf in FRAMES}
-            data[sym] = (frames, float(frames["15Min"].c.iloc[-1]))
+            frames = {tf: jobs[sym, tf].result() for tf in FRAMES}
+            data[sym] = (frames, px[sym][2] if sym in px else float(frames["15Min"].c.iloc[-1]))
         except Exception as e:  # dati che mancano: questo mercato salta il giro
             print(f"ERRORE dati {sym}: {e}", flush=True)
     if not data:
         return
-    done = rows(OPS)
-    today = sum(float(r["netto_usd"]) for r in done if r["chiusura"].startswith(f"{now:%Y-%m-%d}"))
-    prev = {r["simbolo"]: r for r in rows(DEC) if r["azione"] != "errore"}  # l'ultima di ogni mercato
+    with LOCK:
+        snap, done, lessons = {k: dict(v) for k, v in op.items()}, rows(OPS), rows(LESSONS)
+        prev = {r["simbolo"]: r for r in rows(DEC) if r["azione"] != "errore"}  # l'ultima di ogni mercato
     try:
-        resp, model, err = *ask(prompt(data, op, done, news(now), now, headlines(data, now), prev)), ""
+        resp, model, err = *ask(prompt(data, snap, done, news(now), now, headlines(data, now), prev, lessons, why)), ""
     except Exception as e:  # modello giù, limiti dell'abbonamento finiti, risposta non JSON: si aspetta
         resp, model, err = {}, MODEL, str(e)[:300]
-    news_push = []
-    for sym, (_, P) in data.items():
-        t = op.get(sym)
-        a = resp.get(sym) if isinstance(resp.get(sym), dict) else {}
-        if err:
-            a, act, why = {"azione": "errore", "perche": err}, None, "modello non disponibile"
-        else:
-            act, why = check(a, P, t, MARKETS[sym][1])
-        if why or act in ("aspetta", "tieni"):
-            result = why or act
-        elif LIVELLO == "suggerisce":
-            result = "solo suggerimento"
-        elif act == "compra":
-            result, spent = buy(sym, a, P, now, equity, cash, today, op, model)
-            cash -= spent
-        elif act == "vendi":
-            close(sym, t, "AI", now, op)
-            result = "venduto" if sym not in op else "vendita non eseguita"
-        elif act == "sposta_stop":
-            t.update(stop=float(a["stop"]), obiettivo=float(a["obiettivo"]))
-            save_open(op)
-            result = f"stop {t['stop']:.3f}, obiettivo {t['obiettivo']:.3f}"
-        append(DEC, DFIELDS, {"ora": f"{now:%Y-%m-%d %H:%M}", "simbolo": sym, "modello": model, "prezzo": P,
-                              "azione": a.get("azione"), "fiducia": a.get("fiducia"), "stop": a.get("stop"),
-                              "obiettivo": a.get("obiettivo"), "perche": str(a.get("perche", ""))[:500], "esito": result})
-        print(f"{now:%H:%M} {sym} {P:.3f} AI: {a.get('azione')} ({a.get('fiducia')}) → {result}. {a.get('perche', '')}",
-              flush=True)
-        if a.get("azione") not in ("aspetta", None):
-            news_push.append(f"{sym} {a.get('azione')}")
-    bot.push(f"analista {now:%H:%M} " + (", ".join(news_push) or "aspetta"))
+    with LOCK:
+        done = rows(OPS)
+        today = sum(float(r["netto_usd"]) for r in done if r["chiusura"].startswith(f"{now:%Y-%m-%d}"))
+        news_push = []
+        for sym, (_, P) in data.items():
+            t = op.get(sym)
+            a = resp.get(sym) if isinstance(resp.get(sym), dict) else {}
+            if err:
+                a, act, why_not = {"azione": "errore", "perche": err}, None, "modello non disponibile"
+            else:
+                act, why_not = check(a, P, t, MARKETS[sym][1])
+                ALERTS[sym] = levels(a, P)
+            if why_not or act in ("aspetta", "tieni"):
+                result = why_not or act
+            elif LIVELLO == "suggerisce":
+                result = "solo suggerimento"
+            elif act == "compra":
+                result, spent = buy(sym, a, P, now, equity, cash, today, op, model)
+                cash -= spent
+            elif act == "vendi":
+                close(sym, t, "AI", now, op)
+                result = "venduto" if sym not in op else "vendita non eseguita"
+            elif act == "sposta_stop":
+                t.update(stop=float(a["stop"]), obiettivo=float(a["obiettivo"]))
+                save_open(op)
+                result = f"stop {t['stop']:.3f}, obiettivo {t['obiettivo']:.3f}"
+            append(DEC, DFIELDS, {"ora": f"{now:%Y-%m-%d %H:%M}", "simbolo": sym, "modello": model, "prezzo": P,
+                                  "azione": a.get("azione"), "fiducia": a.get("fiducia"), "stop": a.get("stop"),
+                                  "obiettivo": a.get("obiettivo"), "perche": str(a.get("perche", ""))[:500], "esito": result,
+                                  "allarmi": "" if err else ";".join(map(str, ALERTS[sym]))})
+            print(f"{now:%H:%M} {sym} {P:.3f} AI: {a.get('azione')} ({a.get('fiducia')}) → {result}. {a.get('perche', '')}",
+                  flush=True)
+            if a.get("azione") not in ("aspetta", None):
+                news_push.append(f"{sym} {a.get('azione')}")
+        todo = {(r["simbolo"], r["chiusura"]) for r in pending(done, rows(LESSONS))}
+        for x in resp.get("_lezioni") or [] if isinstance(resp.get("_lezioni"), list) else []:
+            if isinstance(x, dict) and (x.get("simbolo"), x.get("chiusura")) in todo and x.get("lezione"):
+                append(LESSONS, LFIELDS, {"ora": f"{now:%Y-%m-%d %H:%M}", "simbolo": x["simbolo"],
+                                          "chiusura": x["chiusura"], "lezione": str(x["lezione"])[:300]})
+                todo.discard((x["simbolo"], x["chiusura"]))
+        bot.push(f"analista {now:%H:%M} " + (", ".join(news_push) or "aspetta"))
+
+
+def run(*args):
+    """decide() nella sua corsia: un errore lì non deve fermare la sorveglianza."""
+    try:
+        decide(*args)
+    except Exception as e:
+        print(f"ERRORE giro: {e}", flush=True)
 
 
 def reconcile(sym, op, now):
@@ -440,8 +573,12 @@ def main():
     for o in bot.api("GET", "/v2/orders?status=open&limit=500") or []:
         if o["symbol"].replace("/", "") in map(plain, MARKETS):
             bot.api("DELETE", f"/v2/orders/{o['id']}")
+    for r in rows(DEC):  # gli allarmi dell'ultimo giro valgono anche dopo un riavvio
+        if r["azione"] != "errore":
+            ALERTS[r["simbolo"]] = [float(x) for x in (r.get("allarmi") or "").split(";") if x]
     fresh = set(MARKETS)  # mercati ancora da riconciliare: i fondi solo a Borsa aperta (prima non si vende)
     end = time.time() + MINUTES * 60
+    worker, asked = None, 0.0
     print(f"Analista AI avviato su {bot.BASE}, {len(MARKETS)} mercati, modello {MODEL}, livello {LIVELLO}; aperte: {list(op)}",
           flush=True)
     while not bot.STOP and time.time() < end:
@@ -455,34 +592,48 @@ def main():
             print(f"ERRORE: {e}", flush=True)
             continue
         closing = pd.Timestamp(clock["next_close"]) - now < timedelta(minutes=15)
-        for sym in sorted(fresh):
-            if MARKETS[sym][0] and not clock["is_open"]:
-                continue
+        window = stock_window(clock, now)
+        with LOCK:  # la sorveglianza di ogni minuto: gira anche mentre il modello pensa
+            for sym in sorted(fresh):
+                if MARKETS[sym][0] and not clock["is_open"]:
+                    continue
+                try:
+                    reconcile(sym, op, now)
+                    fresh.discard(sym)
+                except Exception as e:
+                    print(f"ERRORE {sym}: {e}", flush=True)
+            live = [s for s in MARKETS if s not in fresh and (clock["is_open"] or not MARKETS[s][0])]
             try:
-                reconcile(sym, op, now)
-                fresh.discard(sym)
-            except Exception as e:
-                print(f"ERRORE {sym}: {e}", flush=True)
-        for sym in list(op):
-            stock = MARKETS[sym][0]
-            if sym in fresh or (stock and not clock["is_open"]):
-                continue
-            try:
-                if stock and closing:
-                    why = "chiusura Borsa"
-                else:
-                    bar = bot.minutes(now, 3, sym, stock)[1].iloc[-1]
-                    why = "" if bar.isna().any() else exit_reason(op[sym], bar.h, bar.l)
-                if why:
-                    close(sym, op[sym], why, now, op)
-            except Exception as e:  # rete, dati, broker: si salta questo mercato e si riprova al prossimo minuto
-                print(f"ERRORE {sym}: {e}", flush=True)
-        if now.minute % (15 if clock["is_open"] else 60) == 0:  # Borsa chiusa: solo crypto, una domanda all'ora
+                px = last_prices(live, now)
+            except Exception as e:  # rete o dati: si riprova al prossimo minuto
+                px = {}
+                print(f"ERRORE prezzi: {e}", flush=True)
+            for sym in list(op):
+                stock = MARKETS[sym][0]
+                if sym in fresh or (stock and not clock["is_open"]):
+                    continue
+                try:
+                    why = "chiusura Borsa" if stock and closing else exit_reason(op[sym], *px[sym][:2]) if sym in px else ""
+                    if why:
+                        close(sym, op[sym], why, now, op)
+                except Exception as e:  # rete, broker: si salta questo mercato e si riprova al prossimo minuto
+                    print(f"ERRORE {sym}: {e}", flush=True)
+            rang = ring(px, [s for s in live if window or not MARKETS[s][0]])
+        due = now.minute % (15 if clock["is_open"] else 60) == 0  # Borsa chiusa: solo crypto, una domanda all'ora
+        if (due or rang and time.time() - asked > GAP) and not (worker and worker.is_alive()):
+            for s, x in rang:  # un allarme scatta una volta sola; il modello ne mette di nuovi a ogni risposta
+                ALERTS[s].remove(x)
+            why = "" if due else "è scattato il tuo allarme su " + ", ".join(f"{s} a {x}" for s, x in rang)
             try:
                 acct = bot.api("GET", "/v2/account")
-                decide(now, op, float(acct["equity"]), float(acct["non_marginable_buying_power"]), clock, fresh)
+                worker = threading.Thread(target=run, daemon=True, args=(
+                    now, op, float(acct["equity"]), float(acct["non_marginable_buying_power"]), clock, frozenset(fresh), why))
+                worker.start()
+                asked = time.time()
             except Exception as e:
                 print(f"ERRORE: {e}", flush=True)
+    if worker:
+        worker.join()  # la domanda in corso finisce prima di chiudere
     print(f"Analista fermo; operazioni aperte che il giro dopo riprende: {list(op)}", flush=True)
 
 
@@ -525,8 +676,10 @@ def prova():
     # Il messaggio al modello: ogni mercato con le sue quattro scale, i suoi costi, la sua operazione e i suoi risultati.
     idx = pd.date_range("2026-11-16 08:00", periods=3, freq="15min", tz="UTC")
     df = pd.DataFrame({"o": [1.0, 2, 3], "h": [1.5, 2.5, 3.5], "l": [0.5, 1.5, 2.5], "c": [1.2, 2.2, 3.2], "v": [10, 20, 30]}, idx)
-    done = [{"simbolo": "SOL/USD", "chiusura": "2026-11-16 09:00", "netto_pct": "-0.8", "motivo": "stop"},
-            {"simbolo": "SPY", "chiusura": "2026-11-16 09:30", "netto_pct": "0.4", "motivo": "obiettivo"}]
+    done = [{"simbolo": "SOL/USD", "apertura": "2026-11-16 08:00", "chiusura": "2026-11-16 09:00", "entrata": "74",
+             "uscita": "73.4", "netto_pct": "-0.8", "netto_usd": "-0.16", "motivo": "stop", "perche": "supporto"},
+            {"simbolo": "SPY", "apertura": "2026-11-16 09:00", "chiusura": "2026-11-16 09:30", "entrata": "600",
+             "uscita": "603", "netto_pct": "0.4", "netto_usd": "0.08", "motivo": "obiettivo", "perche": "rottura"}]
     s = prompt({"SOL/USD": ({tf: df for tf in FRAMES}, P), "SPY": ({tf: df for tf in FRAMES}, 600.0)}, {"SOL/USD": t}, done,
                ["11-16 19:00 FOMC Statement"], pd.Timestamp("2026-11-16 10:30", tz="UTC"))
     sol, spy = s.split("=== SPY")
@@ -535,6 +688,25 @@ def prova():
     prev = {"SOL/USD": {"ora": "2026-11-16 10:15", "azione": "aspetta", "fiducia": "60", "perche": "compro sopra 73,3"}}
     assert "avevi detto: aspetta, fiducia 60. compro sopra 73,3" in prompt({"SOL/USD": ({}, P)}, {}, [], [], pd.Timestamp(
         "2026-11-16 10:30", tz="UTC"), prev=prev) and "avevi detto" not in spy
+    assert "Conti fatti" in sol and "Massimo / minimo" in sol and "Finora: 1 chiuse, 0 in guadagno, media -0.80%" in sol
+    assert "Finora: 1 chiuse, 1 in guadagno" in spy and "SOL/USD chiusura 2026-11-16 09:00: aperta" in s
+    lesson = [{"simbolo": "SOL/USD", "chiusura": "2026-11-16 09:00", "lezione": "stop troppo stretto"}]
+    s2 = prompt({}, {}, done, [], pd.Timestamp("2026-11-16 10:30", tz="UTC"), lessons=lesson, why="allarme su SOL/USD a 99")
+    assert "[SOL/USD] stop troppo stretto" in s2 and "SOL/USD chiusura" not in s2 and "SPY chiusura 2026-11-16 09:30" in s2
+    assert "Domanda anticipata: allarme su SOL/USD a 99" in s2
+    # Conti fatti dal bot: prezzo fermo con candele larghe 2 → movimento medio 2%, prezzo sulla media, RSI non definito.
+    flat = pd.DataFrame({"o": 100.0, "h": 101.0, "l": 99.0, "c": 100.0, "v": 1.0}, index=range(30))
+    r, a, m = numbers(flat)
+    assert pd.isna(r) and round(a, 9) == 2 and m == 0
+    assert numbers(flat.assign(c=range(100, 130)))[0] == 100                    # sempre in salita: RSI 100
+    assert all(pd.isna(x) for x in numbers(flat.head(3)))                       # troppo poche candele
+    # Allarmi: al massimo due, numeri veri, entro il 10% dal prezzo; scattano quando l'ultimo minuto li tocca.
+    assert levels({"allarmi": [101, "99.5", 98]}, 100) == [101, 99.5] and levels({"allarmi": [150, "x"]}, 100) == []
+    assert levels({"allarmi": 101}, 100) == [] and levels({}, 100) == []
+    ALERTS.update({"BTC/USD": [101.0], "SPY": [500.0]})
+    assert ring({"BTC/USD": (101.5, 100.2, 101.0), "SPY": (600, 599, 600)}, ["BTC/USD", "SPY"]) == [("BTC/USD", 101.0)]
+    assert ring({"BTC/USD": (101.5, 100.2, 101.0)}, ["SPY"]) == []
+    ALERTS.clear()
     assert "costi ~0.1%" in spy and "Nessuna operazione aperta" in spy and "+0.40% (obiettivo)" in spy and "FOMC" in spy
     # Notizie: solo alto impatto sul dollaro, dall'ora scorsa alle prossime 24 ore.
     now = pd.Timestamp("2026-11-16 12:00", tz="UTC")
@@ -588,11 +760,16 @@ def prova():
     # Un giro completo con modello e broker finti: una domanda per tutti i mercati, una decisione per mercato.
     bars = [{"t": f"2026-11-16T{h:02d}:00:00Z", "o": 100, "h": 101, "l": 99, "c": 100, "v": 5} for h in range(8)]
     sent, logged, asked = [], [], []
-    saved = {k: g[k] for k in ("candles", "ask", "rows", "append", "save_open", "news", "order", "MARKETS")}
+    saved = {k: g[k] for k in ("candles", "ask", "rows", "append", "save_open", "news", "order", "MARKETS", "last_prices")}
     g.update(candles=lambda sym, tf, n, now: pd.DataFrame(bars).assign(t=lambda d: pd.to_datetime(d.t)).set_index("t"),
              ask=lambda text: asked.append(text) or ({"SOL/USD": {"azione": "compra", "fiducia": 65, "stop": 98, "obiettivo": 104,
-                                                                  "perche": "rompe in su"}, "BTC/USD": "rotto"}, "claude-x"),
-             rows=lambda p: [], append=lambda p, f, r: logged.append(r), save_open=lambda op: None, news=lambda now: [],
+                                                                  "allarmi": [99, 105], "perche": "rompe in su"}, "BTC/USD": "rotto",
+                                                      "_lezioni": [{"simbolo": "SOL/USD", "chiusura": "2026-11-16 09:00",
+                                                                    "lezione": "stop sotto il supporto"},
+                                                                   {"simbolo": "ETH/USD", "chiusura": "x", "lezione": "inventata"}]},
+                                                     "claude-x"),
+             last_prices=lambda syms, now: {"SOL/USD": (100.5, 99.5, 100.0)},
+             rows=lambda p: done[:1] if p == OPS else [], append=lambda p, f, r: logged.append(r), save_open=lambda op: None, news=lambda now: [],
              order=lambda sym, side, cid, **a: sent.append((sym, side, a)) or {"status": "filled", "filled_avg_price": "100",
                                                                                "filled_qty": "0.2"},
              MARKETS={"BTC/USD": (False, 0.6), "SOL/USD": (False, 0.6), "SPY": (True, 0.1)})
@@ -602,19 +779,25 @@ def prova():
         decide(now, op, 100.0, 100.0, closed)
         assert len(asked) == 1 and "=== SOL/USD" in asked[0] and "=== SPY" not in asked[0]   # Borsa chiusa: niente SPY
         assert sent == [("SOL/USD", "buy", {"notional": "20.00"})] and op["SOL/USD"]["perche"] == "rompe in su"
-        assert op["SOL/USD"]["modello"] == "claude-x" and len(logged) == 2
+        assert op["SOL/USD"]["modello"] == "claude-x" and len(logged) == 3 and "Conti fatti" in asked[0]
         assert logged[0]["simbolo"] == "BTC/USD" and logged[0]["esito"] == "aspetta"                # risposta rotta
         assert logged[1]["simbolo"] == "SOL/USD" and logged[1]["esito"] == "comprati 20.00 $"
+        assert logged[1]["allarmi"] == "99.0;105.0" and ALERTS["SOL/USD"] == [99.0, 105.0] and ALERTS["BTC/USD"] == []
+        assert logged[2] == {"ora": "2026-11-16 12:00", "simbolo": "SOL/USD", "chiusura": "2026-11-16 09:00",
+                             "lezione": "stop sotto il supporto"}                            # la lezione inventata no
+        assert "SOL/USD chiusura 2026-11-16 09:00" in asked[0]
         g["ask"] = lambda text: (_ for _ in ()).throw(RuntimeError("429 troppe richieste"))
         logged.clear()
         decide(now, op, 100.0, 100.0, closed)
         assert [r["esito"] for r in logged] == ["modello non disponibile"] * 2 and len(sent) == 1
+        assert ALERTS["SOL/USD"] == [99.0, 105.0]                                      # un errore non cancella gli allarmi
         g.update(ask=lambda text: ({"BTC/USD": {"azione": "compra", "stop": 98, "obiettivo": 104}}, "claude-x"), LIVELLO="suggerisce")
         logged.clear()
         decide(now, {}, 100.0, 100.0, closed, skip={"SOL/USD"})
         assert [(r["simbolo"], r["esito"]) for r in logged] == [("BTC/USD", "solo suggerimento")] and len(sent) == 1
     finally:
         g.update(saved, LIVELLO=os.environ.get("LIVELLO", "pieno"))
+        ALERTS.clear()
     print("prove superate")
 
 
