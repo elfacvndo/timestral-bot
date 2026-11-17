@@ -16,5 +16,14 @@
   "stop": 1782.0,
   "obiettivo": 1868.0,
   "perche": "Il livello che aspettavo, 1.810, \u00e8 arrivato. Il rimbalzo dal minimo di 1.784,6 tiene e l'RSI dei 15 minuti \u00e8 costruttivo. Metto lo stop sotto il minimo del giorno e punto alla resistenza delle 24 ore a 1.864-1.868: al netto dei costi il guadagno possibile \u00e8 circa 1,7 volte il rischio. Va notato che la scommessa \u00e8 correlata con BTC e SOL."
+ },
+ "SOL/USD": {
+  "apertura": "2026-11-17 15:06",
+  "modello": "claude-opus-5-5",
+  "investito": 19.4052276938,
+  "entrata": 73.06,
+  "stop": 71.95,
+  "obiettivo": 75.6,
+  "perche": "Lo stop precedente era stato stretto troppo vicino all'entrata ed \u00e8 scattato per rumore. La struttura per\u00f2 resta rialzista: minimi crescenti da 72,0, chiusure sopra 73,5 e volumi in aumento. Rientro con lo stop sotto il supporto di 72,0, a circa -1,7%. L'obiettivo 75,6 vale circa +2,7% netto, cio\u00e8 circa 1,5 volte il rischio."
  }
 }
