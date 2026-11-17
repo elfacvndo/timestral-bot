@@ -8,15 +8,6 @@
   "obiettivo": 28.3,
   "perche": "QQQ ha aperto rompendo il minimo di ieri e il trend giornaliero e orario \u00e8 ribassista, quindi compro il fondo inverso. Lo stop a 27,56 (-0,5%) sta sotto i minimi di stamattina. L'obiettivo \u00e8 il massimo settimanale a 28,0 (+1,06%), cio\u00e8 circa 1,9 volte il rischio al netto dei costi."
  },
- "SOL/USD": {
-  "apertura": "2026-11-17 15:06",
-  "modello": "claude-opus-5-5",
-  "investito": 19.4052276938,
-  "entrata": 73.06,
-  "stop": 71.95,
-  "obiettivo": 75.6,
-  "perche": "Lo stop precedente era stato stretto troppo vicino all'entrata ed \u00e8 scattato per rumore. La struttura per\u00f2 resta rialzista: minimi crescenti da 72,0, chiusure sopra 73,5 e volumi in aumento. Rientro con lo stop sotto il supporto di 72,0, a circa -1,7%. L'obiettivo 75,6 vale circa +2,7% netto, cio\u00e8 circa 1,5 volte il rischio."
- },
  "XLE": {
   "apertura": "2026-11-17 15:15",
   "modello": "claude-opus-5-5",
