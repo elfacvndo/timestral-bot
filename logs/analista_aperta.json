@@ -16,5 +16,14 @@
   "stop": 22.33,
   "obiettivo": 23.35,
   "perche": "BITI rompe 22,65, il livello che aspettavo, mentre BTC tocca 64.100, ETH ha gi\u00e0 perso il suo minimo e le Borse crollano. Lo stop sotto il minimo di oggi a 22,33 corrisponde a BTC sopra 65.000. L'obiettivo corrisponde a BTC verso il minimo settimanale di 62.000. Al netto dei costi il guadagno \u00e8 circa 2 volte il rischio."
+ },
+ "SH": {
+  "apertura": "2026-11-17 16:45",
+  "modello": "claude-opus-5-5",
+  "investito": 19.649999988593997,
+  "entrata": 34.038,
+  "stop": 33.8,
+  "obiettivo": 34.4,
+  "perche": "Il rimbalzo di SPY si spegne con massimi decrescenti e il prezzo torna verso il minimo di 727, quindi il ribasso della giornata riprende. SH a 34,00 ha lo stop a 33,80, sotto il minimo del rimbalzo e oltre il rumore, e l'obiettivo a 34,40. Il rapporto netto \u00e8 circa 1,8."
  }
 }
