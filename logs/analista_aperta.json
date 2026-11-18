@@ -16,5 +16,14 @@
   "stop": 1790.0,
   "obiettivo": 1858.0,
   "perche": "Ha toccato 1.815, la rottura vera che aspettavo. I minimi orari salgono da 1.765 a 1.786 e il movimento \u00e8 coordinato con BTC e SOL. Lo stop sotto 1.790 \u00e8 oltre il rumore orario. L'obiettivo vicino al massimo giornaliero di 1.864 d\u00e0 un rapporto netto di circa 1,5; il trend a 4 ore resta ribassista, quindi la fiducia \u00e8 media."
+ },
+ "SOL/USD": {
+  "apertura": "2026-11-18 01:00",
+  "modello": "claude-opus-5-5",
+  "investito": 19.185834409631997,
+  "entrata": 74.728,
+  "stop": 73.7,
+  "obiettivo": 77.6,
+  "perche": "SOL \u00e8 la pi\u00f9 forte delle tre: da 71,05 fa minimi orari crescenti e regge sopra 74,6 dopo la rottura delle 23:00, con l'RSI a 15 minuti sceso da 82 a 69. Lo stop a 73,7, sotto la base della rottura a 73,88, \u00e8 a circa l'1,6%. Il guadagno netto fino a 77,6 \u00e8 circa il 3%, quindi il rapporto \u00e8 vicino a 1,9. Il trend a 4 ore resta ribassista, per questo la fiducia \u00e8 media."
  }
 }
