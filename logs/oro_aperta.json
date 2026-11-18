@@ -1,14 +1,1 @@
-{
- "GOLD": {
-  "apertura": "2026-11-18 11:15",
-  "modello": "claude-opus-5-5",
-  "once": 0.08,
-  "investito": 300.9176,
-  "verso": -1,
-  "entrata": 3761.47,
-  "stop": 3760.5,
-  "obiettivo": 3718.0,
-  "deal": "00000000-747a-23f9-049f-747d0015549e",
-  "perche": "Il quadro \u00e8 ribassista su pi\u00f9 orizzonti: dal 9 novembre l'oro \u00e8 sceso da 4148 a 3762, il prezzo \u00e8 il 2,3% sotto la media a 4 ore e i massimi sono sempre pi\u00f9 bassi. Il rimbalzo delle 09:30 \u00e8 stato respinto a 3785 e il prezzo torna verso il minimo di giornata a 3757. Lo stop sta sopra quel massimo del rimbalzo (circa 0,73%) e l'obiettivo a 3718 vale circa 1,6 volte il rischio. Il rischio principale \u00e8 l'ipervenduto (RSI a 1 ora a 13), che pu\u00f2 dare un rimbalzo brusco; i verbali FOMC delle 19:00 sono"
- }
-}
+{}
