@@ -1,1 +1,14 @@
-{}
+{
+ "GOLD": {
+  "apertura": "2026-11-18 13:15",
+  "modello": "claude-opus-5-5",
+  "once": 0.11,
+  "investito": 414.4866,
+  "verso": -1,
+  "entrata": 3768.06,
+  "stop": 3789.5,
+  "obiettivo": 3735.0,
+  "deal": "00000000-747b-0eba-049f-747d0015549e",
+  "perche": "Il prezzo \u00e8 tornato nella zona di resistenza 3765-3773 che avevo indicato per rientrare allo scoperto, e il quadro resta ribassista su 4 ore e giornaliero, con massimi sempre pi\u00f9 bassi da 4148. Lo stop sta sopra il massimo del rimbalzo delle 09:00 (3786,7), a circa lo 0,5%, pari al movimento medio di un'ora. L'obiettivo a 3735, sotto il minimo di giornata, vale circa 1,9 volte il rischio. Il rischio \u00e8 l'ipervenduto estremo (RSI a 1 ora a 9), che pu\u00f2 allungare il rimbalzo; i verbali FOMC delle 19"
+ }
+}
