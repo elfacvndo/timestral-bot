@@ -235,7 +235,7 @@ def ring(px, syms):
     return [(s, x) for s in syms if s in px for x in ALERTS.get(s, []) if px[s][1] <= x <= px[s][0]]
 
 
-def check(a, P, t, cost, livello=LIVELLO):
+def check(a, P, t, cost, livello=LIVELLO, lo=MIN_STOP, hi=MAX_STOP):
     """La risposta del modello per un mercato passata dal risk manager: (cosa fare, perché no). La risposta è un testo
     che viene da fuori, quindi ogni numero si controlla."""
     act = str(a.get("azione", "")).strip().lower()
@@ -246,7 +246,7 @@ def check(a, P, t, cost, livello=LIVELLO):
     if t is None:
         if act != "compra":
             return "aspetta", ""
-        if not P * (1 - MAX_STOP) <= stop <= P * (1 - MIN_STOP):
+        if not P * (1 - hi) <= stop <= P * (1 - lo):
             return "aspetta", f"stop {stop} fuori dai limiti"
         if tgt < P * (1 + 2 * cost / 100):
             return "aspetta", "obiettivo troppo vicino per i costi"
@@ -391,11 +391,11 @@ def last_prices(syms, now):
     return out
 
 
-def ask(text):
+def ask(text, system=SYSTEM):
     """Il modello col tuo abbonamento Claude: `claude -p` (Claude Code) senza strumenti, solo testo. Nel cloud si
     autentica col token CLAUDE_CODE_OAUTH_TOKEN (fatto con `claude setup-token`): nessuna chiave a pagamento.
     Ritorna (risposta, nome esatto del modello che ha risposto)."""
-    r = subprocess.run([CLAUDE, "-p", "--model", MODEL, "--tools", "", "--system-prompt", SYSTEM, "--output-format", "json"],
+    r = subprocess.run([CLAUDE, "-p", "--model", MODEL, "--tools", "", "--system-prompt", system, "--output-format", "json"],
                        input=text, capture_output=True, text=True, timeout=600)
     try:
         out = json.loads(r.stdout)

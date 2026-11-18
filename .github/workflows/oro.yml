@@ -1,0 +1,49 @@
+# Analista sull'oro sempre acceso (dal 2026-11-18, al posto dell'Analista su Alpaca): un modello linguistico decide ogni 15
+# minuti sull'oro, CFD con la leva sul conto demo di Capital.com; il bot misura il rischio (vedi oro.py).
+# Un giro dura ~5 ore e mezza (GitHub ferma un lavoro dopo 6), poi si rilancia da solo; l'operazione aperta la riprende
+# il giro dopo (logs/oro_aperta.json), e intanto lo stop è depositato presso il broker. Il cron ogni ora è la riserva.
+# Spegnere: GitHub → Actions → "Analista sull'oro" → "..." → Disable workflow.
+name: Analista sull'oro
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "37 * * * *"
+concurrency: oro
+permissions:
+  contents: write   # salva il registro nel repository
+  actions: write    # si rilancia da solo
+jobs:
+  oro:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: npm install -g @anthropic-ai/claude-code   # Claude Code: il modello con l'abbonamento Claude
+      - run: uv run oro.py --prova
+      - run: |
+          git config user.name "analista-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          uv run oro.py
+        env:
+          CAPITAL_API_KEY: ${{ secrets.CAPITAL_API_KEY }}
+          CAPITAL_EMAIL: ${{ secrets.CAPITAL_EMAIL }}
+          CAPITAL_PASSWORD: ${{ secrets.CAPITAL_PASSWORD }}
+          APCA_API_KEY_ID: ${{ secrets.APCA_API_KEY_ID }}         # solo per i titoli delle notizie sull'oro
+          APCA_API_SECRET_KEY: ${{ secrets.APCA_API_SECRET_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}   # dall'abbonamento: claude setup-token
+          MODELLO: opus                  # opus | sonnet: cambiare modello = cambiare questa riga
+          LIVELLO: pieno                 # suggerisce | apre_chiude | pieno
+          PYTHONUNBUFFERED: "1"
+      - name: Salva il registro
+        if: always()
+        run: |
+          git add logs 2>/dev/null || exit 0
+          git diff --cached --quiet && exit 0
+          git commit -q -m "registro oro $(date -u '+%Y-%m-%d %H:%M') UTC"
+          for i in 1 2 3; do git pull -q --rebase && git push -q && exit 0; sleep 10; done; exit 1
+      - name: Rilancia
+        if: ${{ !cancelled() }}   # anche dopo un errore: l'operazione aperta la riprende solo il giro dopo
+        run: gh workflow run oro.yml --ref main
+        env:
+          GH_TOKEN: ${{ github.token }}
