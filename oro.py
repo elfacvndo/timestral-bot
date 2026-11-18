@@ -13,6 +13,7 @@ In parole semplici, ogni 15 minuti con il mercato dell'oro aperto (e subito se s
 2. il modello risponde come un analista: compra, vendi, aspetta o sposta lo stop, quanto è sicuro e perché;
 3. il bot decide QUANTO: la misura la calcola lui perché arrivare allo stop costi il RISK del conto (2%, ~2 €), con un
    tetto alla perdita del giorno (BUDGET, 6%) e la leva massima europea sull'oro (1:20). L'AI non tocca mai il rischio.
+   Dal 2026-11-18 sera l'utente può scegliere a mano le once dalla dashboard (SETTINGS): vale sempre lo stesso tetto.
 Due versi (dal 2026-11-18, richiesta dell'utente): al rialzo ("compra") o al ribasso ("vendi_allo_scoperto": sui CFD si
 vende oro che non si ha e lo si ricompra dopo; si guadagna se scende). Nelle operazioni "verso" = 1 o -1.
 Lo stop è depositato presso il broker (vale anche a bot fermo); obiettivo e allarmi li guarda il bot ogni minuto. Il
@@ -29,6 +30,7 @@ import json
 import math
 import os
 import signal
+import subprocess
 import sys
 import threading
 import time
@@ -49,6 +51,7 @@ RES = {"15Min": "MINUTE_15", "1Hour": "HOUR", "4Hour": "HOUR_4", "1Day": "DAY"}
 MINUTES = int(os.environ.get("MINUTI", 330))
 OPS, DEC, OPEN = bot.LOGS / "oro.csv", bot.LOGS / "oro_decisioni.csv", bot.LOGS / "oro_aperta.json"
 LESSONS = bot.LOGS / "oro_lezioni.csv"
+SETTINGS = bot.LOGS.parent / "oro_impostazioni.json"  # la misura scelta dall'utente nella dashboard (fuori da logs/)
 FIELDS = A.FIELDS[:-1] + ["verso", "once", "netto_eur"]
 VERSO = {1: "al rialzo", -1: "al ribasso (allo scoperto)"}
 ENTRY = {"compra": 1, "vendi_allo_scoperto": -1}
@@ -154,12 +157,33 @@ def exit_reason(t, bid, offer):
     return "stop" if v * (x - t["stop"]) <= 0 else "obiettivo" if v * (x - t["obiettivo"]) >= 0 else ""
 
 
+def limit(equity, today, stop_pct):
+    """Il tetto di ogni misura in euro, anche di quella scelta a mano: allo stop non si perde più di quanto resta del
+    budget del giorno (kill switch) e la leva resta entro il 90% di 1:20."""
+    return min(max(0.0, BUDGET * equity + min(today, 0)) / stop_pct, 0.9 * LEVA * equity)
+
+
 def size(equity, today, stop_pct):
-    """L'esposizione in euro: arrivare allo stop costa RISK del conto, ridotto da quanto si è già perso oggi (modalità
-    prop firm) e mai più di quanto resta del budget del giorno; tetto: il 90% della leva massima."""
+    """L'esposizione in euro in automatico: arrivare allo stop costa RISK del conto, ridotto da quanto si è già perso
+    oggi (modalità prop firm), sempre entro limit()."""
     scale = max(0.0, 1 + min(today, 0) / (BUDGET * equity))
-    room = max(0.0, BUDGET * equity + min(today, 0))
-    return min(min(RISK * equity * scale, room) / stop_pct, 0.9 * LEVA * equity)
+    return min(RISK * equity * scale / stop_pct, limit(equity, today, stop_pct))
+
+
+def chosen():
+    """Le once scelte a mano dall'utente nella dashboard, o None (automatico: decide il risk manager). Nel cloud si
+    legge l'ultima versione del repository, non la copia del giro (l'utente la cambia mentre il bot gira)."""
+    try:
+        if os.environ.get("GITHUB_ACTIONS"):
+            subprocess.run(["git", "fetch", "-q", "origin", "main"], capture_output=True, timeout=30)
+            text = subprocess.run(["git", "show", f"origin/main:{SETTINGS.name}"], capture_output=True, text=True,
+                                  timeout=30).stdout
+        else:
+            text = SETTINGS.read_text()
+        x = float(json.loads(text).get("once") or 0)
+        return x if x >= MIN_SIZE else None
+    except (OSError, ValueError, TypeError, AttributeError, subprocess.SubprocessError):
+        return None  # niente scelta (o file rotto): automatico
 
 
 def ounces(expo_eur, fx, P):
@@ -230,19 +254,22 @@ def save_open(op):
 
 
 def close(t, why, now, op):
-    """Chiude e scrive il risultato. Se la posizione non c'è più l'ha chiusa il broker allo stop: si registra allo stop.
+    """Chiude e scrive il risultato. Se la posizione non c'è più l'ha chiusa qualcun altro: si registra al prezzo vero
+    dallo storico del broker ("a mano" se l'ha chiusa l'utente prima dello stop), o allo stop se lo storico non la trova.
     Il netto viene dai prezzi veri (spread compreso).
     ponytail: costi notturni esclusi dal netto; leggerli da /api/v1/history/transactions se diventano importanti."""
     p = capital.position()
+    v, cost = t.get("verso", 1), 0
     if p:
         out = capital.close(p["dealId"])
     else:
-        out, why = t["stop"], f"{why} (chiusa dal broker)"
-    v = t.get("verso", 1)
+        out, src = capital.closed_at(t["deal"]) or (t["stop"], None)
+        cost = 0 if src else COST  # dallo storico il prezzo è vero; allo stop è una stima
+        why = "a mano" if src == "USER" and v * (out - t["stop"]) > 0 else f"{why} (chiusa dal broker)"
     gross = v * (out / t["entrata"] - 1) * 100
     row = {"apertura": t["apertura"], "chiusura": f"{now:%Y-%m-%d %H:%M}", "simbolo": SYM, "modello": t["modello"],
            "investito": round(t["investito"], 2), "entrata": t["entrata"], "uscita": out, "motivo": why,
-           "perche": t["perche"], "lordo_pct": round(gross, 4), "netto_pct": round(gross - (0 if p else COST), 4),
+           "perche": t["perche"], "lordo_pct": round(gross, 4), "netto_pct": round(gross - cost, 4),
            "verso": v, "once": t["once"], "netto_eur": round(v * t["once"] * (out - t["entrata"]) / capital.eurusd(), 4)}
     A.append(OPS, FIELDS, row)
     print(row, flush=True)
@@ -255,11 +282,12 @@ def enter(a, P, now, op, model, v):
     """Apre al rialzo (v = 1) o allo scoperto (v = -1) quanto dice il risk manager; ritorna l'esito in parole."""
     stop = float(a["stop"])
     bal, avail = capital.balance()
-    fx, today = capital.eurusd(), today_eur(now)
-    oz = ounces(size(bal, today, abs(1 - stop / P)), fx, P)
+    fx, today, want, sp = capital.eurusd(), today_eur(now), chosen(), abs(1 - stop / P)
+    oz = ounces(size(bal, today, sp), fx, P) if want is None else min(math.floor(want / MIN_SIZE + 1e-9) * MIN_SIZE, ounces(limit(bal, today, sp), fx, P))
     margin = oz * P / LEVA / fx
     if oz < MIN_SIZE or margin > 0.9 * avail:
         return f"misura non possibile ({oz:.2f} once, disponibili {avail:.2f} €, oggi {today:+.2f} €)"
+    how = "" if want is None else f", scelta a mano: {want:.2f}" + ("" if oz >= want - 1e-9 else ", ridotta dal tetto")
     capital.open("BUY" if v > 0 else "SELL", round(oz, 2), stop)
     p = capital.position()
     E = float(p["level"])
@@ -267,7 +295,7 @@ def enter(a, P, now, op, model, v):
                "verso": v, "entrata": E, "stop": stop, "obiettivo": float(a["obiettivo"]), "deal": p["dealId"],
                "perche": str(a.get("perche", ""))[:500]}
     save_open(op)
-    return f"{'comprate' if v > 0 else 'vendute allo scoperto'} {oz:.2f} once ({oz * E:.0f} $, margine {margin:.2f} €)"
+    return f"{'comprate' if v > 0 else 'vendute allo scoperto'} {oz:.2f} once ({oz * E:.0f} $, margine {margin:.2f} €{how})"
 
 
 def decide(now, op, P, why=""):
@@ -449,17 +477,18 @@ def prova():
              "balance": lambda: (100.0, 100.0), "eurusd": lambda: 1.1, "position": lambda: fake["pos"],
              "open": lambda d, s, st: fake.update(pos={"dealId": "d1", "size": s, "level": 3770.0}) or fake["sent"].append((d, s, st)),
              "close": lambda deal: fake.update(pos=None) or fake["out"],
-             "move_stop": lambda deal, st: fake["moved"].append((deal, st))}
+             "move_stop": lambda deal, st: fake["moved"].append((deal, st)), "closed_at": lambda deal: fake.get("hist")}
     saved_cap = {k: getattr(capital, k) for k in fakes}
     tmp = bot.LOGS / "prova_oro"
-    saved = {k: g[k] for k in ("OPS", "DEC", "OPEN", "LESSONS")}
+    saved = {k: g[k] for k in ("OPS", "DEC", "OPEN", "LESSONS", "SETTINGS")}
     saved_a = {k: getattr(A, k) for k in ("ask", "news", "headlines")}
     asked = []
     try:
         for k, v in fakes.items():
             setattr(capital, k, v)
         tmp.mkdir(parents=True, exist_ok=True)
-        g.update(OPS=tmp / "oro.csv", DEC=tmp / "dec.csv", OPEN=tmp / "aperta.json", LESSONS=tmp / "lezioni.csv")
+        g.update(OPS=tmp / "oro.csv", DEC=tmp / "dec.csv", OPEN=tmp / "aperta.json", LESSONS=tmp / "lezioni.csv",
+                 SETTINGS=tmp / "impostazioni.json")
         A.news, A.headlines = (lambda now: []), (lambda syms, now: [])
         # Candele: si scarta quella in corso (la candela delle 11 da 1 ora finisce alle 12: è chiusa).
         df = candles("1Hour", 60, now)
@@ -511,6 +540,36 @@ def prova():
         ALERTS[:] = [3790.0]
         decide(now, op, 3770.0)
         assert A.rows(DEC)[-1]["esito"] == "modello non disponibile" and ALERTS == [3790.0]
+        # Chiusa a mano dall'utente (dashboard): prezzo vero dallo storico, niente costi stimati.
+        op = {"GOLD": {"apertura": "2026-11-18 11:00", "modello": "m", "once": 0.1, "investito": 377, "verso": -1,
+                       "entrata": 3770.0, "stop": 3790.0, "obiettivo": 3740.0, "deal": "d4", "perche": "x"}}
+        fake["hist"] = (3760.0, "USER")
+        reconcile(op, now)
+        r = A.rows(OPS)[-1]
+        assert op == {} and r["motivo"] == "a mano" and r["uscita"] == "3760.0" and float(r["netto_pct"]) == round((1 - 3760 / 3770) * 100, 4)
+        fake["hist"] = (3791.0, "USER")                                        # oltre lo stop: è lo stop, non la mano
+        op = {"GOLD": {"apertura": "2026-11-18 11:00", "modello": "m", "once": 0.1, "investito": 377, "verso": -1,
+                       "entrata": 3770.0, "stop": 3790.0, "obiettivo": 3740.0, "deal": "d5", "perche": "x"}}
+        reconcile(op, now)
+        assert A.rows(OPS)[-1]["motivo"] == "riavvio (chiusa dal broker)" and A.rows(OPS)[-1]["uscita"] == "3791.0"
+        fake["hist"] = None
+        # Misura scelta a mano: si usa quella, ma mai oltre il tetto (budget del giorno e leva).
+        assert chosen() is None
+        SETTINGS.write_text('{"once": 0.2}')
+        assert chosen() == 0.2
+        A.ask = lambda text, system: ({"GOLD": {"azione": "compra", "stop": 3751.15, "obiettivo": 3810}}, "claude-x")
+        op = {}
+        decide(now, op, 3770.0)
+        assert fake["sent"][-1][1] == 0.2 and "scelta a mano: 0.20" in A.rows(DEC)[-1]["esito"]
+        fake["pos"], op = None, {}
+        SETTINGS.write_text('{"once": 5}')                                    # troppo: il tetto la riduce
+        decide(now, op, 3770.0)
+        assert fake["sent"][-1][1] < 5 and "ridotta dal tetto" in A.rows(DEC)[-1]["esito"]
+        fake["pos"] = None
+        SETTINGS.write_text('{"once": null}')
+        assert chosen() is None
+        SETTINGS.write_text('rotto')
+        assert chosen() is None
         # Posizione senza registro (giro interrotto): si chiude.
         fake["pos"] = {"dealId": "d3"}
         reconcile({}, now)

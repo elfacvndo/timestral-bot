@@ -104,6 +104,16 @@ def close(deal):
     return float(c["level"])
 
 
+def closed_at(deal):
+    """(prezzo, chi) della chiusura di una posizione che non c'è più, dallo storico dell'ultimo giorno: "USER" = chiusa
+    a mano o via API (la dashboard, l'app di Capital.com), altro = dal broker. None se non si trova."""
+    for a in api("/api/v1/history/activity?lastPeriod=86400&detailed=true")["activities"]:
+        d = a.get("details") or {}
+        if a.get("dealId") == deal and a.get("type") == "POSITION" and "openPrice" in d:  # la riga di chiusura
+            return float(d["level"]), a.get("source")
+    return None
+
+
 def move_stop(deal, stop):
     api(f"/api/v1/positions/{deal}", "PUT", {"stopLevel": round(stop, 2)})
 
