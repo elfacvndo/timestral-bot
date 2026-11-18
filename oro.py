@@ -174,7 +174,7 @@ def chosen():
     """Le once scelte a mano dall'utente nella dashboard, o None (automatico: decide il risk manager). Nel cloud si
     legge l'ultima versione del repository, non la copia del giro (l'utente la cambia mentre il bot gira)."""
     try:
-        if os.environ.get("GITHUB_ACTIONS"):
+        if os.environ.get("GITHUB_ACTIONS") and SETTINGS.parent == bot.LOGS.parent:  # le prove usano un file loro
             subprocess.run(["git", "fetch", "-q", "origin", "main"], capture_output=True, timeout=30)
             text = subprocess.run(["git", "show", f"origin/main:{SETTINGS.name}"], capture_output=True, text=True,
                                   timeout=30).stdout
@@ -482,6 +482,8 @@ def prova():
     tmp = bot.LOGS / "prova_oro"
     saved = {k: g[k] for k in ("OPS", "DEC", "OPEN", "LESSONS", "SETTINGS")}
     saved_a = {k: getattr(A, k) for k in ("ask", "news", "headlines")}
+    saved_push = bot.push
+    bot.push = lambda msg: None  # le prove non salvano niente nel repository, nemmeno nel cloud
     asked = []
     try:
         for k, v in fakes.items():
@@ -579,6 +581,7 @@ def prova():
             setattr(capital, k, v)
         for k, v in saved_a.items():
             setattr(A, k, v)
+        bot.push = saved_push
         g.update(saved)
         ALERTS.clear()
         for f in tmp.glob("*"):
