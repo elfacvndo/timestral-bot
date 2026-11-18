@@ -1,14 +1,1 @@
-{
- "GOLD": {
-  "apertura": "2026-11-18 17:30",
-  "modello": "claude-opus-5-5",
-  "once": 0.2,
-  "investito": 749.4680000000001,
-  "verso": 1,
-  "entrata": 3747.34,
-  "stop": 3729.0,
-  "obiettivo": 3777.0,
-  "deal": "00000000-747d-aeb9-049f-747d0015549e",
-  "perche": "La zona 3735-3743 ha tenuto due volte oggi: alle 12:00 e alle 16:30, e alle 13:00 da l\u00ec era partito un rimbalzo fino a 3790. L'RSI a 15 minuti (20) e a 4 ore (22) \u00e8 da ipervenduto e le ultime candele mostrano minimi crescenti. Compro un rimbalzo tecnico contro il trend: stop sotto il minimo a 3729 (circa 19 dollari, pi\u00f9 del movimento medio a 15 minuti) e obiettivo a 3777 (circa 29 dollari, rapporto 1,55), sotto la resistenza 3785-3790 dove ripenserei alla vendita. Il rischio dei verbali FOMC del"
- }
-}
+{}
