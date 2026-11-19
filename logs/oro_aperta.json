@@ -1,1 +1,14 @@
-{}
+{
+ "GOLD": {
+  "apertura": "2026-11-19 05:36",
+  "modello": "claude-opus-5-5",
+  "once": 0.2,
+  "investito": 747.744,
+  "verso": -1,
+  "entrata": 3738.72,
+  "stop": 3762.0,
+  "obiettivo": 3700.0,
+  "deal": "00000000-74b8-bb53-049f-747d0015549e",
+  "perche": "\u00c8 arrivato il livello che aspettavo. Il rimbalzo da 3693 \u00e8 tornato nella zona rotta di 3737-3740, sotto il massimo pi\u00f9 basso di 3755-3758. Il trend \u00e8 ribassista su 4 ore e sul giornaliero e l'RSI a 1 ora (32) non \u00e8 pi\u00f9 in ipervenduto estremo. Lo stop \u00e8 a 3762, sopra il massimo di 3758 e a circa un movimento medio a 1 ora, rischio 22 dollari. L'obiettivo \u00e8 a 3700, appena sopra il minimo, guadagno possibile 40 dollari, rapporto circa 1,8: con l'RSI a 4 ore a 17 prendo il profitto prima del minimo "
+ }
+}
