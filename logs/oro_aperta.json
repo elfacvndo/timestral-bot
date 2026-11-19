@@ -1,14 +1,1 @@
-{
- "GOLD": {
-  "apertura": "2026-11-18 23:24",
-  "modello": "claude-opus-5-5",
-  "once": 0.2,
-  "investito": 748.076,
-  "verso": -1,
-  "entrata": 3740.38,
-  "stop": 3758.0,
-  "obiettivo": 3712.0,
-  "deal": "00000000-74b6-b06f-049f-747d0015549e",
-  "perche": "Il rimbalzo della riapertura asiatica \u00e8 arrivato nella zona 3740-3743 che aspettavo, sotto il massimo delle 18:30. Il trend resta ribassista su tutti i tempi e il prezzo \u00e8 sotto le medie a 1 ora, 4 ore e giornaliera. L'RSI a 4 ore a 12 e la poca liquidit\u00e0 rendono possibile un rimbalzo pi\u00f9 ampio, quindi metto lo stop a 3758, a circa 18 dollari, vicino al movimento medio di una candela da un'ora. L'obiettivo a 3712 \u00e8 appena sotto il minimo di 3719,87 e vale circa 1,5 volte il rischio; vicino al mi"
- }
-}
+{}
