@@ -1,1 +1,14 @@
-{}
+{
+ "GOLD": {
+  "apertura": "2026-11-19 15:30",
+  "modello": "claude-opus-5-5",
+  "once": 0.3,
+  "investito": 1106.139,
+  "verso": -1,
+  "entrata": 3687.13,
+  "stop": 3708.0,
+  "obiettivo": 3650.0,
+  "deal": "00000000-74bc-804d-049f-747d0015549e",
+  "perche": "Il prezzo ha rotto con decisione il supporto di 3693, cio\u00e8 il minimo delle ultime 24 ore. Lo ha fatto con una candela da 15 minuti piena e con volume alto, ed \u00e8 il segnale che avevo indicato per rientrare short; il trend resta ribassista su tutti i tempi. L'RSI a 1 ora \u00e8 a 34, non estremo, anche se quello a 4 ore \u00e8 a 18. Per questo metto lo stop a 3708, sopra il livello rotto e il massimo dell'ultima candela, a circa 22 dollari: \u00e8 oltre il movimento medio a 1 ora. L'obiettivo a 3650 vale circa 1"
+ }
+}
