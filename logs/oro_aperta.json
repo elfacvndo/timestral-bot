@@ -1,14 +1,1 @@
-{
- "GOLD": {
-  "apertura": "2026-11-20 02:15",
-  "modello": "claude-opus-5-5",
-  "once": 0.15,
-  "investito": 532.2975,
-  "verso": 1,
-  "entrata": 3548.65,
-  "stop": 3528.0,
-  "obiettivo": 3598.0,
-  "deal": "00000000-74c3-3449-049f-747d0015549e",
-  "perche": "L'oro \u00e8 in capitolazione: RSI a 7 a 1 ora, 11 a 4 ore, prezzo 8,5% sotto la media giornaliera. L'ultima candela da 15 minuti ha toccato 3537 ed \u00e8 risalita a 3554, lasciando una lunga ombra inferiore. Questo \u00e8 il rimbalzo che aspettavo verso 3586-3610: lo gioco al rialzo con lo stop sotto il minimo, oltre il movimento medio. L'obiettivo \u00e8 3598, sotto la zona rotta 3586-3610 dove poi valuter\u00f2 lo short; il rapporto \u00e8 circa 1,7 volte lo stop."
- }
-}
+{}
