@@ -3,7 +3,7 @@
   "apertura": "2026-11-20 11:45",
   "modello": "qwen3-vl:30b",
   "verso": -1,
-  "stop": 3595.26,
+  "stop": 3585.0,
   "deal": "00000000-7531-a9e2-049f-747d0015549e",
   "perche": "Tendenza ribassista su 4h/1d, RSI a 4h a 14 indica ipervenduto. Prezzo in corso di test del minimo delle 24h, stop sopra recente massimo (3595.26) con TP1-TP3 a 0.35-0.55% sotto. L'azione evita il rischio di un rimbalzo breve.",
   "parti": [
