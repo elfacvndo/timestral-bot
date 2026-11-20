@@ -3,7 +3,7 @@
   "apertura": "2026-11-20 15:30",
   "modello": "qwen3-vl:30b",
   "verso": 1,
-  "stop": 3520.74,
+  "stop": 3535.0,
   "deal": "00000000-7533-f3bf-049f-747d0015549e",
   "perche": "RSI 4h a 18 indica ipervendito, suggerendo un potenziale rimbalzo. Il prezzo sta risalendo dal minimo recente a 3514.59, confermando segnali di inversione. Stop posizionato al di sotto del movimento medio di 15Min (0.43%) per evitare false uscite.",
   "parti": [
