@@ -21,6 +21,8 @@ Due versi (dal 2026-11-18, richiesta dell'utente): al rialzo ("compra") o al rib
 vende oro che non si ha e lo si ricompra dopo; si guadagna se scende). Nelle operazioni "verso" = 1 o -1.
 Tre parti (dal 2026-11-20, richiesta dell'utente): ogni entrata apre fino a tre operazioni con lo stesso stop e un
 obiettivo ciascuna (TP1 vicino, TP2 quello di sempre, TP3 lontano); in automatico la misura in tutto è quella di sempre, divisa in tre.
+Gli obiettivi li calcola il bot dallo stop (dal 2026-11-20 sera, richiesta dell'utente: qwen3-vl sbagliava i conti):
+1, 1,5 e 2 volte la distanza dello stop (TP_R, i rapporti che Claude sceglieva da solo). Il modello sceglie verso e stop.
 Lo stop è depositato presso il broker (vale anche a bot fermo); obiettivi e allarmi li guarda il bot ogni minuto. Il
 venerdì sera il bot chiude tutto: nel fine settimana l'oro non si scambia e alla riapertura il prezzo può saltare lo stop.
 Costi da conto vero (dal 2026-11-20, richiesta dell'utente: "come se fosse un conto reale"): lo spread è già nei prezzi
@@ -54,6 +56,7 @@ SYM = "GOLD"
 COST = 0.03                        # andata e ritorno in %: spread ~0,013% più slittamento
 RISK, BUDGET, LEVA = 0.02, 0.06, 20  # rischio a operazione, perdita massima del giorno (del conto), leva massima
 MIN_STOP, MAX_STOP = 0.002, 0.02   # stop fra 0,2% e 2% dal prezzo (con la leva 1:20, il 2% dell'oro è il 40%)
+TP_R = (1, 1.5, 2)                 # obiettivi: quante volte la distanza dello stop (TP1, TP2, TP3)
 MIN_SIZE = 0.01                    # once: taglia minima e passo di Capital.com
 CONV = 0.007                       # cambio euro/dollaro di Capital.com sul risultato (conto in €, oro in $)
 SLIP = 0.00005                     # slittamento stimato di un ordine al mercato (0,005% ≈ 0,18 $): il demo non slitta
@@ -78,19 +81,17 @@ scende). Costi veri, come su un conto reale: spread e slittamento circa {COST}% 
 {CONV:.1%} sul risultato, e per ogni notte con la posizione aperta (alle 22 UTC) un tasso sull'esposizione che di solito
 chi compra paga e chi vende allo scoperto riceve. Il bot chiude da solo il venerdì sera, prima del fine settimana. Lo stop
 va fra {MIN_STOP:.1%} e {MAX_STOP:.0%} dal prezzo, dal lato che ti dà torto (sotto per un acquisto, sopra per una vendita
-allo scoperto), e il bot lo deposita anche presso il broker; gli obiettivi stanno dall'altro lato. Non decidi quanto
-investire: lo calcola il risk manager.
-Ogni entrata il bot la divide in tre operazioni uguali con lo stesso stop e un obiettivo ciascuna, dal più vicino al più
-lontano: TP1 per incassare presto (circa una volta la distanza dello stop), TP2 il tuo obiettivo di sempre, TP3 dove
-arriverebbe il movimento se continua. Quando il prezzo tocca un obiettivo il bot chiude quella parte; le altre restano
+allo scoperto), e il bot lo deposita anche presso il broker. Mettilo dove il tuo scenario risulta sbagliato. Non decidi
+quanto investire (lo calcola il risk manager) e non calcoli gli obiettivi: ogni entrata il bot la divide in tre
+operazioni uguali con lo stesso stop e un obiettivo ciascuna, che calcola lui dallo stop: TP1 a {TP_R[0]:g} volta la
+distanza dello stop, TP2 a {TP_R[1]:g} volte, TP3 a {TP_R[2]:g} volte, dall'altro lato del prezzo. Quando il prezzo tocca un obiettivo il bot chiude quella parte; le altre restano
 aperte con lo stesso stop.
 Rispondi SOLO con un oggetto JSON:
 {{"GOLD": {{"azione": "compra" | "vendi_allo_scoperto" | "aspetta" | "chiudi" | "sposta_stop", "fiducia": 0-100, "stop": prezzo,
-"obiettivi": [TP1, TP2, TP3], "allarmi": [prezzo, prezzo], "perche": "il motivo in due o tre frasi, in italiano"}},
+"allarmi": [prezzo, prezzo], "perche": "il motivo in due o tre frasi, in italiano"}},
 "_lezioni": [{{"simbolo": "GOLD", "chiusura": "AAAA-MM-GG HH:MM", "lezione": "una frase"}}]}}
 Senza operazione aperta: "compra", "vendi_allo_scoperto" o "aspetta". Con un'operazione aperta: "aspetta" (tieni),
-"chiudi" (tutte le parti) o "sposta_stop" (nuovo stop per tutte le parti e sempre tre obiettivi: quelli delle parti già
-chiuse si ignorano; lo stop si avvicina soltanto al prezzo: sale per un acquisto, scende per una vendita allo scoperto).
+"chiudi" (tutte le parti) o "sposta_stop" (nuovo stop per tutte le parti, gli obiettivi restano quelli; lo stop si avvicina soltanto al prezzo: sale per un acquisto, scende per una vendita allo scoperto).
 Ricevi anche i titoli delle notizie recenti: usali come contesto, non come segnale da soli.
 Il bot ti dà i conti già fatti (RSI, movimento medio di una candela, distanza dalla media di 20 candele, massimi e
 minimi): usa quelli invece di rifarli. Il movimento medio dice quanto si muove il prezzo di solito: uno stop più vicino
@@ -101,8 +102,7 @@ subito una domanda nuova: mettili dove agiresti o cambieresti idea.
 no. Le tue lezioni di prima le ricevi a ogni domanda: sono la tua esperienza.
 Lo scopo è fare operazioni e imparare da come vanno: aspettare non è gratis. Il rischio è già fissato: il risk manager
 sceglie la misura in modo che arrivare allo stop costi il {RISK:.0%} del conto, e c'è un tetto alla perdita del giorno.
-Non serve la certezza: compra quando hai un motivo concreto e TP2 è almeno una volta e mezza la distanza dello stop,
-anche con fiducia media. In laterale si può comprare vicino al supporto o vendere allo scoperto vicino alla
+Non serve la certezza: entra quando hai un motivo concreto, anche con fiducia media. In laterale si può comprare vicino al supporto o vendere allo scoperto vicino alla
 resistenza. Se il quadro è ribassista non limitarti ad aspettare: vendi allo scoperto, con lo stop sopra la resistenza. Un annuncio economico in arrivo non basta per aspettare: entra
 con lo stop, oppure aspetta solo se mancano meno di 30 minuti. Orizzonte: da qualche ora a uno-due giorni. Ricevi anche
 quello che hai detto al giro prima: se il livello che aspettavi è arrivato, agisci.
@@ -157,11 +157,7 @@ def check(a, P, t, livello=None):
             a["stop"] = stop = math.floor(P * (1 - MIN_STOP) * 100) / 100 if v > 0 else math.ceil(P * (1 + MIN_STOP) * 100) / 100
         elif not MIN_STOP <= d <= MAX_STOP:  # dal lato sbagliato o troppo lontano
             return "aspetta", f"stop {stop} fuori dai limiti (prezzo {P:.2f})"
-        tps = targets(a, v)
-        if not tps:
-            return "aspetta", "obiettivi non validi (ne servono tre, dal più vicino al più lontano)"
-        if v * (tps[0] - P) / P < 2 * COST / 100:
-            return "aspetta", "primo obiettivo troppo vicino per i costi"
+        a["obiettivi"] = [round(P + v * abs(P - stop) * k, 2) for k in TP_R]  # TP1 ≥ 0,2%: sempre oltre i costi
         return act, ""
     if act in ("chiudi", "vendi"):
         return "chiudi", ""
@@ -169,22 +165,11 @@ def check(a, P, t, livello=None):
         livello = livello or A.LIVELLO
         if livello != "pieno":
             return "tieni", f"livello {livello}: lo stop non si sposta"
-        v, tps = t.get("verso", 1), targets(a, t.get("verso", 1))
-        if not (tps and v * (stop - t["stop"]) > 0 and v * (P - stop) > 0
-                and all(v * (tps[q["n"] - 1] - P) > 0 for q in t["parti"])):
+        v = t.get("verso", 1)
+        if not (v * (stop - t["stop"]) > 0 and v * (P - stop) > 0):
             return "tieni", "spostamento non valido (lo stop si avvicina soltanto e resta dal lato giusto del prezzo)"
         return "sposta_stop", ""
     return "tieni", ""
-
-
-def targets(a, v):
-    """I tre obiettivi del modello, dal più vicino al più lontano nel verso v, o None se non validi (la risposta è un
-    testo che viene da fuori)."""
-    try:
-        x = [float(y) for y in a.get("obiettivi")]
-    except (TypeError, ValueError):
-        return None
-    return x if len(x) == 3 and v * (x[1] - x[0]) > 0 and v * (x[2] - x[1]) > 0 else None
 
 
 def split(oz):
@@ -407,7 +392,7 @@ def close(t, why, now, op, parts=None):
 def enter(a, P, now, op, model, v):
     """Apre al rialzo (v = 1) o allo scoperto (v = -1) quanto dice il risk manager, in tre parti con lo stesso stop e
     un obiettivo ciascuna; ritorna l'esito in parole."""
-    stop, tps = float(a["stop"]), targets(a, v)
+    stop, tps = float(a["stop"]), a["obiettivi"]
     bal, avail = capital.balance()
     bal = equity(bal)
     fx, today, want, sp = capital.eurusd(), today_eur(now), chosen(), abs(1 - stop / P)
@@ -485,11 +470,10 @@ def decide(now, op, P, why=""):
                 close(t, "AI", now, op)
                 result = "chiusa"
             else:  # sposta_stop: per tutte le parti, anche presso il broker
-                tps = targets(a, t["verso"])
                 for q in t["parti"]:
                     capital.move_stop(q["deal"], float(a["stop"]))
-                    q["obiettivo"] = tps[q["n"] - 1]
-                t.update(stop=float(a["stop"]), obiettivi=tps)
+                t["stop"] = float(a["stop"])
+                a["obiettivi"] = [q["obiettivo"] for q in t["parti"]]
                 regroup(t)
                 save_open(op)
                 result = f"stop {t['stop']:.2f}, obiettivi " + ", ".join(f"TP{q['n']} {q['obiettivo']:.2f}" for q in t["parti"])
@@ -650,8 +634,8 @@ def prova():
     # Risk manager, nei due versi: stop dal lato che dà torto, fra 0,2% e 2%; tre obiettivi in fila dall'altro lato,
     # il primo oltre i costi.
     P = 3770.0
-    buy = {"azione": "compra", "stop": 3751.15, "obiettivi": [3790, 3810, 3840]}
-    short = {"azione": "vendi_allo_scoperto", "stop": 3788.85, "obiettivi": [3750, 3730, 3700]}
+    buy = {"azione": "compra", "stop": 3750.0}
+    short = {"azione": "vendi_allo_scoperto", "stop": 3790.0}
     assert check(buy, P, None) == ("compra", "") and check(short, P, None) == ("vendi_allo_scoperto", "")
     assert check({**buy, "stop": 3788.85}, P, None)[0] == "aspetta"      # acquisto con lo stop sopra il prezzo
     assert check({**short, "stop": 3751.15}, P, None)[0] == "aspetta"    # scoperto con lo stop sotto
@@ -660,12 +644,10 @@ def prova():
     near = {**buy, "stop": 3762.47}                                      # il caso delle 14:00 (0,1999%)
     assert check(near, P, None)[0] == "compra" and near["stop"] == 3762.46
     assert check({**short, "stop": 3900}, P, None)[0] == "aspetta"       # troppo lontano (3,4%)
-    assert check({**short, "obiettivi": [3769, 3750, 3730]}, P, None)[0] == "aspetta"  # TP1 dentro i costi
-    assert check({**short, "obiettivi": [3800, 3810, 3820]}, P, None)[0] == "aspetta"  # dal lato sbagliato
-    assert check({**buy, "obiettivi": [3810, 3790, 3840]}, P, None)[0] == "aspetta"    # non in fila
-    for bad in ([3790], None, "3790", [3790, "x", 3840]):
-        assert check({**buy, "obiettivi": bad}, P, None)[0] == "aspetta"
-    assert check({"azione": "compra", "stop": 3751.15, "obiettivo": 3810}, P, None)[0] == "aspetta"  # un obiettivo solo
+    b, sh_ = dict(buy), dict(short)  # gli obiettivi li calcola il bot: 1, 1,5 e 2 volte lo stop, quelli del modello si ignorano
+    check({**b, "obiettivi": [3700, 3800, 3600]}, P, None)
+    assert check(b, P, None)[0] == "compra" and b["obiettivi"] == [3790.0, 3800.0, 3810.0]
+    assert check(sh_, P, None)[0] == "vendi_allo_scoperto" and sh_["obiettivi"] == [3750.0, 3740.0, 3730.0]
     assert check({**buy, "stop": "tanto"}, P, None) == ("aspetta", "numeri non validi") and check({"azione": "chiudi"}, P, None)[0] == "aspetta"
     three = lambda *tp: [{"n": i + 1, "obiettivo": x} for i, x in enumerate(tp)]
     tl = {"verso": 1, "stop": 3750, "obiettivo": 3800, "parti": three(3780, 3790, 3800)}
@@ -675,8 +657,6 @@ def prova():
     assert check(mv(3780, [3760, 3740, 3730]), P, ts, "pieno") == ("sposta_stop", "")
     assert check(mv(3795, [3760, 3740, 3730]), P, ts, "pieno")[0] == "tieni"   # lo stop si allontana
     assert check(mv(3765, [3760, 3740, 3730]), P, ts, "pieno")[0] == "tieni"   # oltre il prezzo
-    assert check(mv(3780, [3775, 3740, 3730]), P, ts, "pieno")[0] == "tieni"   # TP1 dal lato sbagliato, parte ancora aperta
-    assert check(mv(3780, [3775, 3740, 3730]), P, {**ts, "parti": ts["parti"][1:]}, "pieno") == ("sposta_stop", "")  # TP1 già chiusa
     assert check(mv(3760, [3780, 3800, 3820]), P, tl, "pieno") == ("sposta_stop", "")
     assert check(mv(3760, [3780, 3800, 3820]), P, tl, "apre_chiude")[0] == "tieni"
     assert check(buy, P, tl)[0] == "tieni"                                # già dentro: niente seconda operazione
@@ -739,12 +719,12 @@ def prova():
         dec(now, op, 3770.0)
         t = op["GOLD"]
         assert "=== GOLD" in asked[0] and "Conti fatti" in asked[0] and "Nessuna operazione aperta" in asked[0]
-        assert fake["sent"] == [("BUY", 0.04, 3751.15), ("BUY", 0.04, 3751.15), ("BUY", 0.03, 3751.15)]
-        assert [(q["n"], q["deal"], q["once"], q["obiettivo"]) for q in t["parti"]] == [(1, "d1", 0.04, 3790), (2, "d2", 0.04, 3810), (3, "d3", 0.03, 3840)]
-        assert t["obiettivi"] == [3790, 3810, 3840] and t["once"] == 0.11 and t["verso"] == 1 and t["deal"] == "d1" and t["entrata"] == 3770.0 and t["notte_tasso"] == -0.02
-        assert A.rows(DEC)[-1]["esito"].startswith("comprate 0.11 once in 3 parti") and A.rows(DEC)[-1]["obiettivo"] == "3790;3810;3840"
-        assert ALERTS == [3790.0] and json.loads(OPEN.read_text())["GOLD"]["parti"][2]["obiettivo"] == 3840
-        assert "parte 3 (TP3): 0.03 once, obiettivo 3840.00" in prompt({}, 3775, t, [], [], now)
+        assert fake["sent"] == [("BUY", 0.04, 3750.0), ("BUY", 0.04, 3750.0), ("BUY", 0.03, 3750.0)]
+        assert [(q["n"], q["deal"], q["once"], q["obiettivo"]) for q in t["parti"]] == [(1, "d1", 0.04, 3790), (2, "d2", 0.04, 3800), (3, "d3", 0.03, 3810)]
+        assert t["obiettivi"] == [3790, 3800, 3810] and t["once"] == 0.11 and t["verso"] == 1 and t["deal"] == "d1" and t["entrata"] == 3770.0 and t["notte_tasso"] == -0.02
+        assert A.rows(DEC)[-1]["esito"].startswith("comprate 0.11 once in 3 parti") and A.rows(DEC)[-1]["obiettivo"] == "3790.0;3800.0;3810.0"
+        assert ALERTS == [3790.0] and json.loads(OPEN.read_text())["GOLD"]["parti"][2]["obiettivo"] == 3810
+        assert "parte 3 (TP3): 0.03 once, obiettivo 3810.00" in prompt({}, 3775, t, [], [], now)
         assert "circa +0.117% netto" in prompt({}, 3775, t, [], [], now)  # 0,133% lordo - mezzo spread e slittamento - cambio
         # Ogni minuto: TP1 toccato chiude solo la prima parte; le altre restano, con lo stesso stop.
         watch(op, now, 3785, 3786, None)
@@ -755,10 +735,10 @@ def prova():
         assert [q["n"] for q in t["parti"]] == [2, 3] and t["once"] == 0.07 and "d1" not in fake["pos"]
         assert r["motivo"] == "obiettivo 1" and r["parte"] == "1" and float(r["lordo_eur"]) == round(0.04 * 21 / 1.1, 4) and net(r)
         assert 0 < float(r["costi_eur"]) < 0.05 and float(r["netto_pct"]) < float(r["lordo_pct"])
-        # Sposta lo stop: per tutte le parti ancora aperte, anche presso il broker, con i loro obiettivi nuovi.
+        # Sposta lo stop: per tutte le parti ancora aperte, anche presso il broker; gli obiettivi restano quelli del bot.
         A.ask = lambda text, system: ({"GOLD": mv(3765, [3790, 3820, 3850])}, "claude-x")
         dec(now, op, 3780.0)
-        assert fake["moved"] == [("d2", 3765.0), ("d3", 3765.0)] and t["stop"] == 3765 and [q["obiettivo"] for q in t["parti"]] == [3820, 3850]
+        assert fake["moved"] == [("d2", 3765.0), ("d3", 3765.0)] and t["stop"] == 3765 and [q["obiettivo"] for q in t["parti"]] == [3800, 3810]
         # Lo stop chiude tutte le parti rimaste.
         fake["out"] = 3764.0
         watch(op, now, 3764, 3765, None)
@@ -769,7 +749,7 @@ def prova():
         A.ask = lambda text, system: asked.append(text) or ({"GOLD": {**short, "fiducia": 55, "perche": "resistenza"}}, "claude-x")
         dec(now, op, 3770.0)
         assert [x[0] for x in fake["sent"][-3:]] == ["SELL"] * 3 and op["GOLD"]["verso"] == -1
-        assert A.rows(DEC)[-1]["esito"].startswith("vendute allo scoperto 0.11 once in 3 parti")
+        assert A.rows(DEC)[-1]["esito"].startswith("vendute allo scoperto 0.10 once in 3 parti")
         dec(now, op, 3750.0)                                               # già dentro: tiene
         assert "al ribasso (allo scoperto)" in asked[-1] and "+0.53% a favore" in asked[-1] and len(fake["sent"]) == 6
         fake["out"] = 3740.0
@@ -870,7 +850,7 @@ def prova():
             p["size"] = round(p["size"] + s, 2)
         capital.open, op = merged, {}
         dec(now, op, 3770.0)
-        assert [(q["n"], q["once"], q["obiettivo"]) for q in op["GOLD"]["parti"]] == [(2, 0.11, 3810)]
+        assert [(q["n"], q["once"], q["obiettivo"]) for q in op["GOLD"]["parti"]] == [(2, 0.1, 3800)]
         # Posizione senza registro (giro interrotto): si chiude.
         fake["pos"] = {"d3": {"dealId": "d3"}}
         reconcile({}, now)
@@ -878,7 +858,7 @@ def prova():
         # Il prezzo si è mosso mentre il modello pensava (alle 13:45 del 2026-11-20, 7 minuti e 10 $): si giudica su quello nuovo.
         op = {}
         A.ask = lambda text, system: ({"GOLD": {**buy, "fiducia": 60}}, "claude-x")
-        fake["mid"] = 3750.0                                                   # sceso sotto lo stop 3751,15: niente ordine
+        fake["mid"] = 3750.0                                                   # sceso allo stop 3750: niente ordine
         decide(now, op, 3770.0)
         assert "GOLD" not in op and "prezzo 3750.00" in A.rows(DEC)[-1]["esito"]
     finally:
