@@ -1,1 +1,43 @@
-{}
+{
+ "GOLD": {
+  "apertura": "2026-11-20 11:00",
+  "modello": "claude-opus-5-5",
+  "verso": 1,
+  "stop": 3563.0,
+  "deal": "00000000-7531-6df7-049f-747d0015549e",
+  "perche": "Il rimbalzo dall'ipervenduto estremo (RSI a 4 ore a 14) ha ormai una struttura vera di minimi crescenti: 3514, poi 3541, poi 3566. L'ultima spinta a 3595 ha chiuso sui massimi, quindi seguo il rimbalzo verso la zona rotta 3607-3640, dove poi valuter\u00f2 lo short. Lo stop va sotto l'ultimo minimo pi\u00f9 alto (3566) e a circa 25 dollari, pi\u00f9 del movimento medio a 15 minuti. TP2 a 3625 vale una volta e mezza lo stop, e oggi \u00e8 venerd\u00ec, quindi l'orizzonte resta breve.",
+  "parti": [
+   {
+    "n": 1,
+    "deal": "00000000-7531-6df7-049f-747d0015549e",
+    "once": 0.19,
+    "entrata": 3588.11,
+    "obiettivo": 3611.0
+   },
+   {
+    "n": 2,
+    "deal": "00000000-7531-6e11-049f-747d0015549e",
+    "once": 0.19,
+    "entrata": 3588.11,
+    "obiettivo": 3625.0
+   },
+   {
+    "n": 3,
+    "deal": "00000000-7531-6e1d-049f-747d0015549e",
+    "once": 0.19,
+    "entrata": 3588.11,
+    "obiettivo": 3640.0
+   }
+  ],
+  "obiettivi": [
+   3611.0,
+   3625.0,
+   3640.0
+  ],
+  "notte_tasso": -0.0156744,
+  "once": 0.57,
+  "entrata": 3588.11,
+  "investito": 2045.2227,
+  "obiettivo": 3640.0
+ }
+}
