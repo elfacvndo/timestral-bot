@@ -41,6 +41,7 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.request
 from datetime import timedelta
 
 import pandas as pd
@@ -63,6 +64,8 @@ OPS, DEC, OPEN = bot.LOGS / "oro.csv", bot.LOGS / "oro_decisioni.csv", bot.LOGS 
 LESSONS = bot.LOGS / "oro_lezioni.csv"
 SETTINGS = bot.LOGS.parent / "oro_impostazioni.json"  # la misura scelta dall'utente nella dashboard (fuori da logs/)
 CLOSE = bot.LOGS.parent / "oro_chiudi.json"  # "chiudi adesso" dalla dashboard: {"deal": ...} dell'operazione da chiudere
+STATE = bot.LOGS / "oro_stato.json"  # il segno di vita per la dashboard: dove gira, modello, Ollama, se sta pensando
+THOUGHT = [None]  # quanti secondi ha pensato il modello l'ultima volta
 FIELDS = A.FIELDS[:-1] + ["verso", "once", "netto_eur", "lordo_eur", "costi_eur", "parte"]
 VERSO = {1: "al rialzo", -1: "al ribasso (allo scoperto)"}
 ENTRY = {"compra": 1, "vendi_allo_scoperto": -1}
@@ -241,7 +244,7 @@ def latest(f):
     """Un file che l'utente scrive dalla dashboard, come dict ({} se manca o è rotto). Nel cloud si legge l'ultima
     versione del repository, non la copia del giro (l'utente lo cambia mentre il bot gira)."""
     try:
-        if os.environ.get("GITHUB_ACTIONS") and f.parent == bot.LOGS.parent:  # le prove usano un file loro
+        if bot.SHARED and f.parent == bot.LOGS.parent:  # nel cloud o sul Mac; le prove usano un file loro  # le prove usano un file loro
             subprocess.run(["git", "fetch", "-q", "origin", "main"], capture_output=True, timeout=30)
             text = subprocess.run(["git", "show", f"origin/main:{f.name}"], capture_output=True, text=True,
                                   timeout=30).stdout
@@ -303,9 +306,15 @@ def prompt(frames, P, t, done, events, now, heads=(), prev=None, lessons=(), why
     if t:
         mins, v = (now - pd.Timestamp(t["apertura"], tz="UTC")) / timedelta(minutes=1), t.get("verso", 1)
         parts = "; ".join(f"parte {q['n']} (TP{q['n']}): {q['once']:.2f} once, obiettivo {q['obiettivo']:.2f}" for q in t["parti"])
+        g = v * (P / t["entrata"] - 1) * 100
+        nights = sum(q.get("notte_eur", 0) for q in t["parti"])
         s.append(f"\nOperazione aperta da {mins:.0f} minuti, {VERSO[v]}: {t['once']:.2f} once ancora aperte, entrata media "
-                 f"{t['entrata']:.2f}, stop {t['stop']:.2f} per tutte le parti, ora {v * (P / t['entrata'] - 1) * 100:+.2f}% "
-                 f"a favore (costi esclusi). Parti ancora aperte: {parts}.")
+                 f"{t['entrata']:.2f}, stop {t['stop']:.2f} per tutte le parti, ora {g:+.2f}% a favore prima dei costi. "
+                 f"Se chiudi adesso il risultato vero, già calcolato dal bot, è circa {g - COST / 2 - CONV * abs(g):+.3f}% "
+                 f"netto (uscita dal lato sfavorevole dello spread, slittamento, cambio euro/dollaro"
+                 + (f", notti {nights:+.2f} €" if nights else "") + "): usa questo numero, non rifare il conto. "
+                 f"Il prezzo si muove mentre pensi (1-2 minuti): con un netto vicino a zero chiudere non blocca un guadagno. "
+                 f"Parti ancora aperte: {parts}.")
     else:
         s.append("\nNessuna operazione aperta.")
     if prev:
@@ -443,7 +452,9 @@ def decide(now, op, P, why=""):
         prev = next((r for r in A.rows(DEC)[::-1] if r["azione"] != "errore"), None)
     try:
         text = prompt(frames, P, t, done, A.news(now), now, A.headlines(["GLD"], now), prev, lessons, why)
+        t0 = time.time()
         resp, model, err = *A.ask(text, SYSTEM), ""
+        THOUGHT[0] = round(time.time() - t0)
     except Exception as e:  # modello giù, limiti dell'abbonamento finiti, risposta non JSON: si aspetta
         resp, model, err = {}, A.MODEL, str(e)[:300]
     with LOCK:
@@ -537,6 +548,25 @@ def watch(op, now, bid, offer, fee):
             close(t, "stop", now, op, gone)
 
 
+def ollama():
+    """Il modello sul Mac, per la dashboard: caricato in memoria? None se il modello non è di Ollama."""
+    if ":" not in A.MODEL:
+        return None
+    try:
+        with urllib.request.urlopen(f"{A.OLLAMA}/api/ps", timeout=5) as r:
+            m = next((x for x in json.load(r)["models"] if x["name"] == A.MODEL), None)
+        return {"caricato": bool(m), "gb": round(m["size"] / 1e9, 1) if m else 0}
+    except (OSError, ValueError, KeyError):
+        return {"errore": "Ollama non risponde"}
+
+
+def alive(now, paused, thinking):
+    """Il segno di vita di ogni minuto (logs/oro_stato.json): arriva su GitHub col primo salvataggio del registro."""
+    STATE.write_text(json.dumps({"ora": f"{now:%Y-%m-%d %H:%M}", "dove": "cloud" if os.environ.get("GITHUB_ACTIONS") else "Mac",
+                                 "modello": A.MODEL, "pausa": paused, "pensa": bool(thinking), "secondi": THOUGHT[0],
+                                 "ollama": ollama()}, ensure_ascii=False))
+
+
 def crossed(a, b):
     """Gli allarmi che il prezzo ha passato andando da a a b."""
     return [x for x in ALERTS if min(a, b) <= x <= max(a, b)]
@@ -552,6 +582,7 @@ def main():
     last = next((r for r in A.rows(DEC)[::-1] if r["azione"] != "errore"), None)  # gli allarmi valgono anche dopo un riavvio
     ALERTS[:] = [float(x) for x in ((last or {}).get("allarmi") or "").split(";") if x]
     fresh, end, worker, asked, before = True, time.time() + MINUTES * 60, None, 0.0, None
+    paused = latest(SETTINGS).get("pausa") is True
     print(f"Analista sull'oro avviato ({capital.BASE}), modello {A.MODEL}, livello {A.LIVELLO}; aperta: {SYM in op}", flush=True)
     while not bot.STOP and time.time() < end:
         bot.wait_minute()
@@ -577,7 +608,10 @@ def main():
             if ok and before:
                 rang = crossed(before, P)
             before = P if ok else None
-        due = ok and not fresh and now.minute % 15 == 0
+        if now.minute % 15 == 0:  # in pausa dalla dashboard: niente domande al modello, stop e obiettivi sorvegliati lo stesso
+            paused = latest(SETTINGS).get("pausa") is True
+        due = ok and not fresh and now.minute % 15 == 0 and not paused
+        rang = [] if paused else rang
         if (due or rang and time.time() - asked > A.GAP) and not (worker and worker.is_alive()):
             for x in rang:  # un allarme scatta una volta sola; il modello ne mette di nuovi a ogni risposta
                 ALERTS.remove(x)
@@ -585,6 +619,9 @@ def main():
             worker = threading.Thread(target=run, daemon=True, args=(now, op, P, why))
             worker.start()
             asked = time.time()
+        alive(now, paused, worker and worker.is_alive())
+        if time.time() - bot.PUSHED[0] > 3600:  # anche a mercato chiuso, una volta all'ora: la dashboard sa che il bot c'è
+            bot.push("oro: segno di vita")
     if worker:
         worker.join()
     print(f"Analista sull'oro fermo; aperta: {SYM in op}", flush=True)
@@ -695,6 +732,7 @@ def prova():
         assert A.rows(DEC)[-1]["esito"].startswith("comprate 0.11 once in 3 parti") and A.rows(DEC)[-1]["obiettivo"] == "3790;3810;3840"
         assert ALERTS == [3790.0] and json.loads(OPEN.read_text())["GOLD"]["parti"][2]["obiettivo"] == 3840
         assert "parte 3 (TP3): 0.03 once, obiettivo 3840.00" in prompt({}, 3775, t, [], [], now)
+        assert "circa +0.117% netto" in prompt({}, 3775, t, [], [], now)  # 0,133% lordo - mezzo spread e slittamento - cambio
         # Ogni minuto: TP1 toccato chiude solo la prima parte; le altre restano, con lo stesso stop.
         watch(op, now, 3785, 3786, None)
         assert len(t["parti"]) == 3 and not A.rows(OPS)

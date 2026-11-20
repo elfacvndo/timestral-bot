@@ -214,10 +214,15 @@ def wait_minute():
         time.sleep(1)
 
 
+SHARED = bool(os.environ.get("GITHUB_ACTIONS") or os.environ.get("SALVA_REGISTRO"))  # nel cloud o sul Mac: registro nel repository
+PUSHED = [0.0]  # quando è stato salvato l'ultima volta (time.time())
+
+
 def push(msg):
     """Nel cloud (o sul Mac con SALVA_REGISTRO=1) salva il registro nel repository: così si legge su GitHub mentre il bot gira."""
-    if not (os.environ.get("GITHUB_ACTIONS") or os.environ.get("SALVA_REGISTRO")):
+    if not SHARED:
         return
+    PUSHED[0] = time.time()
     for cmd in (["git", "add", "logs"], ["git", "commit", "-q", "-m", msg], ["git", "pull", "-q", "--rebase"], ["git", "push", "-q"]):
         if subprocess.run(cmd, capture_output=True).returncode:
             return
