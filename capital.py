@@ -53,8 +53,14 @@ def prices(resolution, n):
     return api(f"/api/v1/prices/{EPIC}?resolution={resolution}&max={n}")["prices"]
 
 
+def market(epic=EPIC):
+    """Il mercato: "snapshot" (bid, offer, marketStatus: "TRADEABLE" = si può operare) e "instrument" (con
+    overnightFee: longRate, shortRate in % al giorno, swapChargeTimestamp della prossima notte, swapChargeInterval)."""
+    return api(f"/api/v1/markets/{epic}")
+
+
 def snapshot(epic=EPIC):
-    return api(f"/api/v1/markets/{epic}")["snapshot"]  # bid, offer, marketStatus ("TRADEABLE" = si può operare)
+    return market(epic)["snapshot"]
 
 
 def eurusd():
@@ -68,9 +74,10 @@ def balance():
     return float(a["balance"]), float(a["available"])
 
 
-def position():
-    """La posizione aperta sull'oro ({dealId, size, level, stopLevel, ...}) o None."""
-    return next((p["position"] for p in api("/api/v1/positions")["positions"] if p["market"]["epic"] == EPIC), None)
+def positions():
+    """Le posizioni aperte sull'oro ([{dealId, size, level, stopLevel, direction, createdDateUTC, ...}]). Dal 2026-11-20
+    ogni entrata ne apre fino a tre (una per obiettivo): il conto non unisce le posizioni nello stesso verso."""
+    return [p["position"] for p in api("/api/v1/positions")["positions"] if p["market"]["epic"] == EPIC]
 
 
 def confirm(ref):
@@ -128,7 +135,7 @@ def check():
     print("Orari:", json.dumps(i.get("openingHours"), ensure_ascii=False))
     mid = (s["bid"] + s["offer"]) / 2
     print(f"Prezzo {s['bid']} / {s['offer']}: spread {(s['offer'] - s['bid']) / mid:.3%}, stato {s['marketStatus']}")
-    print("Posizione aperta:", position())
+    print("Posizioni aperte:", positions())
 
 
 if __name__ == "__main__":
