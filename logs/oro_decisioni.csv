@@ -209,3 +209,4 @@ ora,simbolo,modello,prezzo,azione,fiducia,stop,obiettivo,perche,esito,allarmi
 2026-11-20 12:15,GOLD,qwen3-vl:30b,3573.67,errore,,,,substring not found,modello non disponibile,
 2026-11-20 12:30,GOLD,qwen3-vl:30b,3576.7,sposta_stop,85,3580.0,3572.7;3563.64;3557.31,"Tendenza ribassista confermata su 4h/1d, RSI a 4h a 18 (ipervenduto) ma prezzo ancora al test del minimo recente. Stop aggiornato a 3580 (2x movimento medio) per proteggere profitti senza uscire troppo presto. In ipervenduto estremo è meglio lasciare spazio al movimento.","stop 3580.00, obiettivi TP2 3563.64, TP3 3557.31",3580.0;3557.0
 2026-11-20 12:45,GOLD,qwen3-vl:30b,3571.09,errore,,,,substring not found,modello non disponibile,
+2026-11-20 13:00,GOLD,qwen3-vl:30b,3572.04,errore,,,,substring not found,modello non disponibile,
