@@ -8,13 +8,6 @@
   "perche": "RSI 4h a 18 indica ipervendito, suggerendo un potenziale rimbalzo. Il prezzo sta risalendo dal minimo recente a 3514.59, confermando segnali di inversione. Stop posizionato al di sotto del movimento medio di 15Min (0.43%) per evitare false uscite.",
   "parti": [
    {
-    "n": 1,
-    "deal": "00000000-7533-f3bf-049f-747d0015549e",
-    "once": 0.19,
-    "entrata": 3535.76,
-    "obiettivo": 3551.92
-   },
-   {
     "n": 2,
     "deal": "00000000-7533-f3ce-049f-747d0015549e",
     "once": 0.19,
@@ -35,9 +28,9 @@
    3567.51
   ],
   "notte_tasso": -0.0156018,
-  "once": 0.57,
-  "entrata": 3536.0,
-  "investito": 2015.5181,
+  "once": 0.38,
+  "entrata": 3536.11,
+  "investito": 1343.7237,
   "obiettivo": 3567.51
  }
 }
