@@ -215,8 +215,8 @@ def wait_minute():
 
 
 def push(msg):
-    """Nel cloud salva il registro nel repository: così si legge su GitHub mentre il bot gira."""
-    if not os.environ.get("GITHUB_ACTIONS"):
+    """Nel cloud (o sul Mac con SALVA_REGISTRO=1) salva il registro nel repository: così si legge su GitHub mentre il bot gira."""
+    if not (os.environ.get("GITHUB_ACTIONS") or os.environ.get("SALVA_REGISTRO")):
         return
     for cmd in (["git", "add", "logs"], ["git", "commit", "-q", "-m", msg], ["git", "pull", "-q", "--rebase"], ["git", "push", "-q"]):
         if subprocess.run(cmd, capture_output=True).returncode:

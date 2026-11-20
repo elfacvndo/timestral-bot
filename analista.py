@@ -78,6 +78,7 @@ MARKETS = {  # simbolo: (fondo di Borsa?, costi stimati andata e ritorno in %)
 }
 MODEL = os.environ.get("MODELLO", "opus")    # alias di Claude Code: sempre l'Opus più recente
 CLAUDE = os.environ.get("CLAUDE", "claude")  # il programma Claude Code
+OLLAMA = os.environ.get("OLLAMA", "http://127.0.0.1:11434")  # i modelli sul Mac (dal 2026-11-20): MODELLO con ":", es. qwen3-vl:30b
 LIVELLO = os.environ.get("LIVELLO", "pieno")
 RISK, QUOTA, BUDGET = 0.005, 0.20, 0.02  # rischio a operazione, massimo per operazione, perdita massima del giorno (del conto)
 MIN_STOP, MAX_STOP = 0.005, 0.04          # stop fra 0,5% e 4% sotto il prezzo
@@ -394,7 +395,15 @@ def last_prices(syms, now):
 def ask(text, system=SYSTEM):
     """Il modello col tuo abbonamento Claude: `claude -p` (Claude Code) senza strumenti, solo testo. Nel cloud si
     autentica col token CLAUDE_CODE_OAUTH_TOKEN (fatto con `claude setup-token`): nessuna chiave a pagamento.
-    Ritorna (risposta, nome esatto del modello che ha risposto)."""
+    Ritorna (risposta, nome esatto del modello che ha risposto).
+    Un nome con ":" (es. qwen3-vl:30b) è un modello aperto sul Mac con Ollama: niente termini d'uso di terzi."""
+    if ":" in MODEL:
+        body = {"model": MODEL, "stream": False, "format": "json", "think": False, "keep_alive": "20m", "options": {"num_ctx": 16384},
+                "messages": [{"role": "system", "content": system}, {"role": "user", "content": text}]}
+        req = urllib.request.Request(f"{OLLAMA}/api/chat", json.dumps(body).encode(), {"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=600) as r:
+            s = json.load(r)["message"]["content"]
+        return json.loads(s[s.index("{"):s.rindex("}") + 1]), MODEL
     r = subprocess.run([CLAUDE, "-p", "--model", MODEL, "--tools", "", "--system-prompt", system, "--output-format", "json"],
                        input=text, capture_output=True, text=True, timeout=600)
     try:
