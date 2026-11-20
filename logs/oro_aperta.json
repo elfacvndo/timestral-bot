@@ -1,14 +1,1 @@
-{
- "GOLD": {
-  "apertura": "2026-11-20 08:27",
-  "modello": "claude-opus-5-5",
-  "once": 0.01,
-  "investito": 35.8362,
-  "verso": -1,
-  "entrata": 3583.62,
-  "stop": 3612.0,
-  "obiettivo": 3525.0,
-  "deal": "00000000-7530-570c-049f-747d0015549e",
-  "perche": "Il rimbalzo \u00e8 arrivato nella zona rotta 3583-3590, cio\u00e8 sotto i minimi di stanotte, dentro un trend ribassista su 4 ore e su base giornaliera. Il 15 minuti \u00e8 gi\u00e0 ipercomprato (RSI 75), quindi vendo come da piano. Lo stop \u00e8 sopra 3606-3610, a circa 28 dollari, quasi due movimenti medi da 15 minuti. L'obiettivo \u00e8 3525, poco sopra il minimo di 3514, con un rapporto di circa 2 a 1, e va chiuso prima della chiusura del venerd\u00ec."
- }
-}
+{}
