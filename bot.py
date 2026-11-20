@@ -223,7 +223,7 @@ def push(msg):
     if not SHARED:
         return
     PUSHED[0] = time.time()
-    for cmd in (["git", "add", "logs"], ["git", "commit", "-q", "-m", msg], ["git", "pull", "-q", "--rebase"], ["git", "push", "-q"]):
+    for cmd in (["git", "add", "logs"], ["git", "commit", "-q", "-m", msg], ["git", "pull", "-q", "--rebase", "--autostash"], ["git", "push", "-q"]):
         if subprocess.run(cmd, capture_output=True).returncode:
             return
 

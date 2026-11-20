@@ -8,7 +8,7 @@
 #   tail -f ~/Library/Logs/tradingbot-oro.log                          # cosa sta facendo
 cd "${0:A:h}"
 export MODELLO=qwen3-vl:30b LIVELLO=pieno SALVA_REGISTRO=1 PYTHONUNBUFFERED=1
-git pull -q --rebase
+git pull -q --rebase --autostash
 caffeinate -i uv run oro.py --prova && caffeinate -i uv run --env-file ../.env oro.py
-git add logs && git commit -q -m "registro oro $(date -u '+%Y-%m-%d %H:%M') UTC" && git pull -q --rebase && git push -q
+git add logs && git commit -q -m "registro oro $(date -u '+%Y-%m-%d %H:%M') UTC" && git pull -q --rebase --autostash && git push -q
 sleep 30  # se qualcosa non va, niente giri a raffica
