@@ -152,8 +152,11 @@ def check(a, P, t, livello=None):
         v = ENTRY.get(act)
         if not v:
             return "aspetta", ""
-        if not MIN_STOP <= v * (P - stop) / P <= MAX_STOP:  # lo stop dal lato che dà torto, né troppo vicino né lontano
-            return "aspetta", f"stop {stop} fuori dai limiti"
+        d = v * (P - stop) / P
+        if 0 < d < MIN_STOP:  # dal lato giusto ma troppo vicino (spesso il prezzo si è mosso mentre pensava): si allarga al minimo
+            a["stop"] = stop = math.floor(P * (1 - MIN_STOP) * 100) / 100 if v > 0 else math.ceil(P * (1 + MIN_STOP) * 100) / 100
+        elif not MIN_STOP <= d <= MAX_STOP:  # dal lato sbagliato o troppo lontano
+            return "aspetta", f"stop {stop} fuori dai limiti (prezzo {P:.2f})"
         tps = targets(a, v)
         if not tps:
             return "aspetta", "obiettivi non validi (ne servono tre, dal più vicino al più lontano)"
@@ -457,6 +460,10 @@ def decide(now, op, P, why=""):
         THOUGHT[0] = round(time.time() - t0)
     except Exception as e:  # modello giù, limiti dell'abbonamento finiti, risposta non JSON: si aspetta
         resp, model, err = {}, A.MODEL, str(e)[:300]
+    try:  # il modello pensa minuti (qwen3-vl fino a 7): stop e obiettivi si controllano sul prezzo di adesso
+        P = sum(quote()[:2]) / 2
+    except Exception as e:
+        resp, err = {}, err or f"prezzo non letto: {e}"[:300]
     with LOCK:
         t = op.get(SYM)
         a = resp.get(SYM) if isinstance(resp.get(SYM), dict) else {}
@@ -648,7 +655,10 @@ def prova():
     assert check(buy, P, None) == ("compra", "") and check(short, P, None) == ("vendi_allo_scoperto", "")
     assert check({**buy, "stop": 3788.85}, P, None)[0] == "aspetta"      # acquisto con lo stop sopra il prezzo
     assert check({**short, "stop": 3751.15}, P, None)[0] == "aspetta"    # scoperto con lo stop sotto
-    assert check({**short, "stop": 3771}, P, None)[0] == "aspetta"       # troppo vicino (0,03%)
+    near = {**short, "stop": 3771}                                       # troppo vicino (0,03%): allargato allo 0,2%
+    assert check(near, P, None)[0] == "vendi_allo_scoperto" and near["stop"] == 3777.54
+    near = {**buy, "stop": 3762.47}                                      # il caso delle 14:00 (0,1999%)
+    assert check(near, P, None)[0] == "compra" and near["stop"] == 3762.46
     assert check({**short, "stop": 3900}, P, None)[0] == "aspetta"       # troppo lontano (3,4%)
     assert check({**short, "obiettivi": [3769, 3750, 3730]}, P, None)[0] == "aspetta"  # TP1 dentro i costi
     assert check({**short, "obiettivi": [3800, 3810, 3820]}, P, None)[0] == "aspetta"  # dal lato sbagliato
@@ -706,6 +716,9 @@ def prova():
     saved = {k: g[k] for k in ("OPS", "DEC", "OPEN", "LESSONS", "SETTINGS", "CLOSE")}
     saved_a = {k: getattr(A, k) for k in ("ask", "news", "headlines")}
     saved_push = bot.push
+    saved_quote = quote  # il prezzo riletto dopo la risposta: nelle prove è quello del giro
+    g["quote"] = lambda: (fake["mid"] - 0.5, fake["mid"] + 0.5, True, fee)
+    dec = lambda now, op, P: fake.update(mid=P) or decide(now, op, P)
     bot.push = lambda msg: None  # le prove non salvano niente nel repository, nemmeno nel cloud
     asked = []
     net = lambda r: round(float(r["lordo_eur"]) - float(r["costi_eur"]), 4) == float(r["netto_eur"])
@@ -723,7 +736,7 @@ def prova():
         # Un giro: compra 0,11 once in tre parti con lo stesso stop presso il broker, un obiettivo ciascuna.
         A.ask = lambda text, system: asked.append(text) or ({"GOLD": {**buy, "fiducia": 60, "allarmi": [3790], "perche": "supporto"}}, "claude-x")
         op = {}
-        decide(now, op, 3770.0)
+        dec(now, op, 3770.0)
         t = op["GOLD"]
         assert "=== GOLD" in asked[0] and "Conti fatti" in asked[0] and "Nessuna operazione aperta" in asked[0]
         assert fake["sent"] == [("BUY", 0.04, 3751.15), ("BUY", 0.04, 3751.15), ("BUY", 0.03, 3751.15)]
@@ -744,7 +757,7 @@ def prova():
         assert 0 < float(r["costi_eur"]) < 0.05 and float(r["netto_pct"]) < float(r["lordo_pct"])
         # Sposta lo stop: per tutte le parti ancora aperte, anche presso il broker, con i loro obiettivi nuovi.
         A.ask = lambda text, system: ({"GOLD": mv(3765, [3790, 3820, 3850])}, "claude-x")
-        decide(now, op, 3780.0)
+        dec(now, op, 3780.0)
         assert fake["moved"] == [("d2", 3765.0), ("d3", 3765.0)] and t["stop"] == 3765 and [q["obiettivo"] for q in t["parti"]] == [3820, 3850]
         # Lo stop chiude tutte le parti rimaste.
         fake["out"] = 3764.0
@@ -754,14 +767,14 @@ def prova():
         assert all(net(r) for r in R) and "Finora: 3 chiuse, 1 in guadagno" in prompt({}, 3800, None, R, [], now)
         # Allo scoperto: tre parti, l'oro scende a 3740, l'AI chiude tutto e il guadagno è positivo.
         A.ask = lambda text, system: asked.append(text) or ({"GOLD": {**short, "fiducia": 55, "perche": "resistenza"}}, "claude-x")
-        decide(now, op, 3770.0)
+        dec(now, op, 3770.0)
         assert [x[0] for x in fake["sent"][-3:]] == ["SELL"] * 3 and op["GOLD"]["verso"] == -1
         assert A.rows(DEC)[-1]["esito"].startswith("vendute allo scoperto 0.11 once in 3 parti")
-        decide(now, op, 3750.0)                                               # già dentro: tiene
+        dec(now, op, 3750.0)                                               # già dentro: tiene
         assert "al ribasso (allo scoperto)" in asked[-1] and "+0.53% a favore" in asked[-1] and len(fake["sent"]) == 6
         fake["out"] = 3740.0
         A.ask = lambda text, system: ({"GOLD": {"azione": "chiudi"}}, "claude-x")
-        decide(now, op, 3740.0)
+        dec(now, op, 3740.0)
         R = A.rows(OPS)[-3:]
         assert op == {} and all(r["verso"] == "-1" and r["motivo"] == "AI" and float(r["lordo_eur"]) > 0 and net(r) for r in R)
         assert float(R[0]["lordo_eur"]) == round(0.04 * 30 / 1.1, 4) and not fake["pos"]
@@ -793,11 +806,11 @@ def prova():
         assert round(equity(100), 4) == round(100 - sum(float(x["costi_eur"]) for x in A.rows(OPS)), 4) < 100
         # Il venerdì sera il modello non può aprire; il modello giù non apre niente.
         A.ask = lambda text, system: ({"GOLD": {**buy}}, "claude-x")
-        decide(pd.Timestamp("2026-11-20 21:30", tz="UTC"), op, 3770.0)
+        dec(pd.Timestamp("2026-11-20 21:30", tz="UTC"), op, 3770.0)
         assert A.rows(DEC)[-1]["esito"].startswith("venerdì sera") and len(fake["sent"]) == 6
         A.ask = lambda text, system: (_ for _ in ()).throw(RuntimeError("429"))
         ALERTS[:] = [3790.0]
-        decide(now, op, 3770.0)
+        dec(now, op, 3770.0)
         assert A.rows(DEC)[-1]["esito"] == "modello non disponibile" and ALERTS == [3790.0]
         # Chiusa a mano dall'utente (dashboard): prezzo vero dallo storico, niente costi stimati dello stop.
         sh = lambda deal: {"GOLD": {"apertura": "2026-11-18 11:00", "modello": "m", "verso": -1, "stop": 3790.0, "deal": deal,
@@ -840,11 +853,11 @@ def prova():
         SETTINGS.write_text('{"once": 0.2}')
         assert chosen() == 0.2
         op = {}
-        decide(now, op, 3770.0)
+        dec(now, op, 3770.0)
         assert [x[1] for x in fake["sent"][-3:]] == [0.2, 0.2, 0.2] and "scelta a mano: 3 × 0.20" in A.rows(DEC)[-1]["esito"]
         fake["pos"], op = {}, {}
         SETTINGS.write_text('{"once": 5}')                                    # oltre il tetto del giorno: resta 5
-        decide(now, op, 3770.0)
+        dec(now, op, 3770.0)
         assert [x[1] for x in fake["sent"][-3:]] == [5, 5, 5] and "ridotta" not in A.rows(DEC)[-1]["esito"]
         fake["pos"] = {}
         SETTINGS.write_text('{"once": null}')
@@ -856,13 +869,20 @@ def prova():
             p = fake["pos"].setdefault("m", {"dealId": "m", "size": 0, "level": 3770.0})
             p["size"] = round(p["size"] + s, 2)
         capital.open, op = merged, {}
-        decide(now, op, 3770.0)
+        dec(now, op, 3770.0)
         assert [(q["n"], q["once"], q["obiettivo"]) for q in op["GOLD"]["parti"]] == [(2, 0.11, 3810)]
         # Posizione senza registro (giro interrotto): si chiude.
         fake["pos"] = {"d3": {"dealId": "d3"}}
         reconcile({}, now)
         assert not fake["pos"]
+        # Il prezzo si è mosso mentre il modello pensava (alle 13:45 del 2026-11-20, 7 minuti e 10 $): si giudica su quello nuovo.
+        op = {}
+        A.ask = lambda text, system: ({"GOLD": {**buy, "fiducia": 60}}, "claude-x")
+        fake["mid"] = 3750.0                                                   # sceso sotto lo stop 3751,15: niente ordine
+        decide(now, op, 3770.0)
+        assert "GOLD" not in op and "prezzo 3750.00" in A.rows(DEC)[-1]["esito"]
     finally:
+        g["quote"] = saved_quote
         for k, v in saved_cap.items():
             setattr(capital, k, v)
         for k, v in saved_a.items():
