@@ -1,14 +1,1 @@
-{
- "GOLD": {
-  "apertura": "2026-11-19 23:36",
-  "modello": "claude-opus-5-5",
-  "once": 0.22,
-  "investito": 793.9074,
-  "verso": -1,
-  "entrata": 3608.67,
-  "stop": 3641.0,
-  "obiettivo": 3565.0,
-  "deal": "00000000-74c1-ff9e-049f-747d0015549e",
-  "perche": "Il prezzo \u00e8 sceso sotto 3612, cio\u00e8 sotto il minimo delle 24 ore (3619.89), e ha rotto la compressione 3620-3639. \u00c8 la rottura netta che aspettavo, dentro un trend ribassista su tutti i tempi. Metto lo stop sopra la compressione, a circa 30 dollari: \u00e8 pi\u00f9 largo del movimento medio a 1 ora, cos\u00ec il rimbalzo da ipervenduto non mi fa uscire per rumore. L'obiettivo a 3565 vale circa 1,5 volte il rischio, e tenere la posizione di notte mi fa incassare il carry dello short; se il prezzo accelera verso "
- }
-}
+{}
