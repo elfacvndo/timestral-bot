@@ -8,13 +8,6 @@
   "perche": "Tendenza ribassista su 4h/1d, RSI a 4h a 14 indica ipervenduto. Prezzo in corso di test del minimo delle 24h, stop sopra recente massimo (3595.26) con TP1-TP3 a 0.35-0.55% sotto. L'azione evita il rischio di un rimbalzo breve.",
   "parti": [
    {
-    "n": 1,
-    "deal": "00000000-7531-a9e2-049f-747d0015549e",
-    "once": 0.19,
-    "entrata": 3584.7,
-    "obiettivo": 3569.96
-   },
-   {
     "n": 2,
     "deal": "00000000-7531-a9ed-049f-747d0015549e",
     "once": 0.19,
@@ -35,9 +28,9 @@
    3557.31
   ],
   "notte_tasso": 0.0074544,
-  "once": 0.57,
-  "entrata": 3584.72,
-  "investito": 2043.2903999999999,
+  "once": 0.38,
+  "entrata": 3584.73,
+  "investito": 1362.1974,
   "obiettivo": 3557.31
  }
 }
