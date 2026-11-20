@@ -8,13 +8,6 @@
   "perche": "Tendenza ribassista su 4h/1d con RSI 4h a 18 (ipervenduto), prezzo vicino a minimo recente. Stop sopra resistenza 3590.51 evita rumore di mercato.",
   "parti": [
    {
-    "n": 1,
-    "deal": "00000000-7533-7a1d-049f-747d0015549e",
-    "once": 0.19,
-    "entrata": 3570.12,
-    "obiettivo": 3550.19
-   },
-   {
     "n": 2,
     "deal": "00000000-7533-7a28-049f-747d0015549e",
     "once": 0.19,
@@ -35,9 +28,9 @@
    3530.03
   ],
   "notte_tasso": 0.0073818,
-  "once": 0.57,
-  "entrata": 3569.78,
-  "investito": 2034.7765,
+  "once": 0.38,
+  "entrata": 3569.62,
+  "investito": 1356.4537,
   "obiettivo": 3530.03
  }
 }
