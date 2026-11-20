@@ -8,13 +8,6 @@
   "perche": "Tendenza ribassista su 4h/1d, prezzo vicino a minimo recente. RSI a 4h a 18 (ipervenduto) ma trend forte. Stop al 0.25% con TP2 a 0.36% rispetta 1.5x il rapporto richiesto.",
   "parti": [
    {
-    "n": 2,
-    "deal": "00000000-7532-4ad4-049f-747d0015549e",
-    "once": 0.19,
-    "entrata": 3567.2,
-    "obiettivo": 3559.0
-   },
-   {
     "n": 3,
     "deal": "00000000-7532-4af0-049f-747d0015549e",
     "once": 0.19,
@@ -28,9 +21,9 @@
    3555.0
   ],
   "notte_tasso": 0.0074544,
-  "once": 0.38,
-  "entrata": 3567.55,
-  "investito": 1355.6671000000001,
+  "once": 0.19,
+  "entrata": 3567.89,
+  "investito": 677.8991,
   "obiettivo": 3555.0
  }
 }
