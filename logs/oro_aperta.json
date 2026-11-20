@@ -1,1 +1,29 @@
-{}
+{
+ "GOLD": {
+  "apertura": "2026-11-20 13:45",
+  "modello": "qwen3-vl:30b",
+  "verso": -1,
+  "stop": 3566.85,
+  "deal": "00000000-7532-9d61-049f-747d0015549e",
+  "perche": "Trend ribassista su 4h/1d, RSI 4h a 18 (ipervenduto), il prezzo ha gi\u00e0 rotto la resistenza 3565. Stop sopra per proteggere, TP1 a 3545 per sfruttare la continuazione del crollo.",
+  "parti": [
+   {
+    "n": 2,
+    "deal": "00000000-7532-9d61-049f-747d0015549e",
+    "once": 0.19,
+    "entrata": 3566.05,
+    "obiettivo": 3540.11
+   }
+  ],
+  "obiettivi": [
+   3545.44,
+   3540.11,
+   3514.59
+  ],
+  "notte_tasso": 0.0074544,
+  "once": 0.19,
+  "entrata": 3566.05,
+  "investito": 677.5495000000001,
+  "obiettivo": 3540.11
+ }
+}
