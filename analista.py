@@ -398,7 +398,8 @@ def ask(text, system=SYSTEM):
     Ritorna (risposta, nome esatto del modello che ha risposto).
     Un nome con ":" (es. qwen3-vl:30b) è un modello aperto sul Mac con Ollama: niente termini d'uso di terzi."""
     if ":" in MODEL:
-        body = {"model": MODEL, "stream": False, "format": "json", "think": False, "keep_alive": "20m", "options": {"num_ctx": 16384},
+        body = {"model": MODEL, "stream": False, "format": "json", "keep_alive": "20m",
+                "options": {"num_ctx": 32768},  # qwen3-vl:30b ragiona sempre (fino a ~9.000 token) prima del JSON: con 16.384 a volte finiva lo spazio
                 "messages": [{"role": "system", "content": system}, {"role": "user", "content": text}]}
         req = urllib.request.Request(f"{OLLAMA}/api/chat", json.dumps(body).encode(), {"Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=600) as r:
