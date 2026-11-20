@@ -15,10 +15,12 @@ In parole semplici, ogni 15 minuti con il mercato dell'oro aperto (e subito se s
    tetto alla perdita del giorno (BUDGET, 6%) e la leva massima europea sull'oro (1:20). L'AI non tocca mai il rischio.
    Dal 2026-11-18 sera l'utente può scegliere a mano le once dalla dashboard (SETTINGS). Dal 2026-11-20 (richiesta
    dell'utente) la scelta a mano vince sempre: niente tetto del giorno né riduzione della leva, solo il broker può rifiutare.
+   La misura scelta a mano vale per OGNI parte (dal 2026-11-20 sera, richiesta dell'utente): 0,30 once = tre operazioni
+   da 0,30, non tre da 0,10.
 Due versi (dal 2026-11-18, richiesta dell'utente): al rialzo ("compra") o al ribasso ("vendi_allo_scoperto": sui CFD si
 vende oro che non si ha e lo si ricompra dopo; si guadagna se scende). Nelle operazioni "verso" = 1 o -1.
 Tre parti (dal 2026-11-20, richiesta dell'utente): ogni entrata apre fino a tre operazioni con lo stesso stop e un
-obiettivo ciascuna (TP1 vicino, TP2 quello di sempre, TP3 lontano); la misura in tutto è quella di sempre, divisa in tre.
+obiettivo ciascuna (TP1 vicino, TP2 quello di sempre, TP3 lontano); in automatico la misura in tutto è quella di sempre, divisa in tre.
 Lo stop è depositato presso il broker (vale anche a bot fermo); obiettivi e allarmi li guarda il bot ogni minuto. Il
 venerdì sera il bot chiude tutto: nel fine settimana l'oro non si scambia e alla riapertura il prezzo può saltare lo stop.
 Costi da conto vero (dal 2026-11-20, richiesta dell'utente: "come se fosse un conto reale"): lo spread è già nei prezzi
@@ -403,9 +405,10 @@ def enter(a, P, now, op, model, v):
             return f"misura non possibile ({oz:.2f} once, disponibili {avail:.2f} €, oggi {today:+.2f} €)"
     else:  # scelta a mano (dal 2026-11-20, richiesta dell'utente): vince sempre, niente tetti del bot; decide il broker
         oz = math.floor(want / MIN_SIZE + 1e-9) * MIN_SIZE
-    margin, how = oz * P / LEVA / fx, "" if want is None else f", scelta a mano: {oz:.2f}"
+    sizes = split(oz) if want is None else [round(oz, 2)] * 3  # a mano: tre parti da quella misura ciascuna
+    margin, how = sum(sizes) * P / LEVA / fx, "" if want is None else f", scelta a mano: 3 × {oz:.2f}"
     before, err = {p["dealId"] for p in capital.positions()}, ""
-    for s in split(oz):
+    for s in sizes:
         try:
             capital.open("BUY" if v > 0 else "SELL", s, stop)
         except Exception as e:  # una parte rifiutata: si tengono quelle già aperte
@@ -793,18 +796,18 @@ def prova():
         fake["pos"]["d9"] = {"dealId": "d9"}
         watch(op, pd.Timestamp("2026-11-20 21:45", tz="UTC"), 3769, 3770, None)
         assert op == {} and A.rows(OPS)[-1]["motivo"] == "fine settimana"
-        # Misura scelta a mano: è quella in tutto, divisa in tre, e vince sempre (niente tetti del bot).
+        # Misura scelta a mano: vale per ogni parte (0,20 = tre da 0,20) e vince sempre (niente tetti del bot).
         A.ask = lambda text, system: ({"GOLD": {**buy}}, "claude-x")
         assert chosen() is None
         SETTINGS.write_text('{"once": 0.2}')
         assert chosen() == 0.2
         op = {}
         decide(now, op, 3770.0)
-        assert [x[1] for x in fake["sent"][-3:]] == [0.07, 0.07, 0.06] and "scelta a mano: 0.20" in A.rows(DEC)[-1]["esito"]
+        assert [x[1] for x in fake["sent"][-3:]] == [0.2, 0.2, 0.2] and "scelta a mano: 3 × 0.20" in A.rows(DEC)[-1]["esito"]
         fake["pos"], op = {}, {}
         SETTINGS.write_text('{"once": 5}')                                    # oltre il tetto del giorno: resta 5
         decide(now, op, 3770.0)
-        assert round(sum(x[1] for x in fake["sent"][-3:]), 2) == 5 and "ridotta" not in A.rows(DEC)[-1]["esito"]
+        assert [x[1] for x in fake["sent"][-3:]] == [5, 5, 5] and "ridotta" not in A.rows(DEC)[-1]["esito"]
         fake["pos"] = {}
         SETTINGS.write_text('{"once": null}')
         assert chosen() is None
