@@ -3,7 +3,7 @@
   "apertura": "2026-11-20 15:00",
   "modello": "qwen3-vl:30b",
   "verso": -1,
-  "stop": 3590.51,
+  "stop": 3576.92,
   "deal": "00000000-7533-7a1d-049f-747d0015549e",
   "perche": "Tendenza ribassista su 4h/1d con RSI 4h a 18 (ipervenduto), prezzo vicino a minimo recente. Stop sopra resistenza 3590.51 evita rumore di mercato.",
   "parti": [
