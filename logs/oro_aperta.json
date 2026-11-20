@@ -1,14 +1,1 @@
-{
- "GOLD": {
-  "apertura": "2026-11-20 03:00",
-  "modello": "claude-opus-5-5",
-  "once": 0.01,
-  "investito": 35.4784,
-  "verso": 1,
-  "entrata": 3547.84,
-  "stop": 3519.0,
-  "obiettivo": 3594.0,
-  "deal": "00000000-74c3-8f22-049f-747d0015549e",
-  "perche": "Dopo la capitolazione con minimo a 3526 e volume alto, la candela delle 02:45 ha fatto un minimo pi\u00f9 alto (3538) e il prezzo tiene sopra 3545. \u00c8 la conferma che mancava al giro prima, con l'RSI a 1 ora a 7 e il prezzo a -3,3% dalla media. Compro il rimbalzo con lo stop sotto il minimo di capitolazione, oltre il movimento medio, e l'obiettivo sotto il vecchio minimo rotto di 3590, circa 1,5 volte il rischio. Se il prezzo arriva in zona 3582-3594 valuto di incassare e di passare allo short sulla r"
- }
-}
+{}
